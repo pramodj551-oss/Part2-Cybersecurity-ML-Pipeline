@@ -98,93 +98,26 @@ The final trained model is a **Random Forest classifier**, saved for future infe
 
 ---
 
-## Key Features
+## Technology Stack
 
-- End-to-end, production-ready ML pipeline
-- Modular Python architecture for maintainability and scalability
-- Comprehensive EDA notebook (25 production-quality cells)
-- Data validation, cleaning, and missing value handling
-- Feature engineering and feature selection
-- Random Forest classification model
-- Evaluation with standard classification metrics
-- Standalone prediction pipeline
-- Logging support and centralized configuration management
-- Exportable reports
-- Easy to extend and maintain
+| Category | Technology |
+|---|---|
+| Programming Language | Python 3.10+ |
+| Data Processing | Pandas, NumPy |
+| Data Visualization | Matplotlib |
+| Machine Learning | Scikit-learn |
+| Notebook Environment | Jupyter Notebook / Google Colab |
+| Logging | Python Logging Module |
+| Configuration | Python Configuration Module |
+| Version Control | Git & GitHub |
 
 ---
 
-## Repository Structure
+## Project Architecture
+
+The project follows a modular architecture where each component has a dedicated responsibility:
 
 ```text
-Part2-Cybersecurity-ML-Pipeline/
-│
-├── data/                # Raw and processed datasets
-├── notebooks/           # EDA and experimentation notebooks
-├── outputs/             # Reports, plots, exported artifacts
-├── src/                 # Modular pipeline source code
-├── models/              # Saved/trained models
-├── logs/                # Pipeline run logs
-├── README.md
-├── requirements.txt
-├── LICENSE
-├── CHANGELOG.md
-└── run_pipeline.py      # Entry point to run the full pipeline
-```
-
----
-
-## Getting Started
-
-```bash
-# Clone the repository
-git clone https://github.com/<your-username>/Part2-Cybersecurity-ML-Pipeline.git
-cd Part2-Cybersecurity-ML-Pipeline
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run the pipeline
-python run_pipeline.py
-```
-
----
-
-## Project Metadata
-
-| | |
-|---|---|
-| **Version** | 2.2 |
-| **Project Type** | End-to-End Machine Learning Pipeline |
-| **Domain** | Cybersecurity Analytics |
-| **Model Type** | Classification (Severity Prediction) |
-| **Status** | Production Ready 🚀 |
-
----
-
-## License
-
-See [LICENSE](LICENSE) for details.
-Technology Stack
-
-This project is built using modern Python libraries and machine learning tools.
-
-Category| Technology
-Programming Language| Python 3.10+
-Data Processing| Pandas, NumPy
-Data Visualization| Matplotlib
-Machine Learning| Scikit-learn
-Notebook Environment| Jupyter Notebook / Google Colab
-Logging| Python Logging Module
-Configuration| Python Configuration Module
-Version Control| Git & GitHub
-
----
-
-Project Architecture
-
-The project follows a modular architecture where each component has a dedicated responsibility.
-
                  +----------------------+
                  |   Raw Cybersecurity  |
                  |       Dataset        |
@@ -228,11 +161,29 @@ The project follows a modular architecture where each component has a dedicated 
                  +----------------------+
                  | Saved Model & Output |
                  +----------------------+
+```
 
 ---
 
-Project Folder Structure
+## Key Features
 
+- End-to-end, production-ready ML pipeline
+- Modular Python architecture for maintainability and scalability
+- Comprehensive EDA notebook (25 production-quality cells)
+- Data validation, cleaning, and missing value handling
+- Feature engineering and feature selection
+- Random Forest classification model
+- Evaluation with standard classification metrics
+- Standalone prediction pipeline
+- Logging support and centralized configuration management
+- Exportable reports
+- Easy to extend and maintain
+
+---
+
+## Repository Structure
+
+```text
 Part2-Cybersecurity-ML-Pipeline/
 │
 ├── data/
@@ -272,66 +223,95 @@ Part2-Cybersecurity-ML-Pipeline/
 ├── CHANGELOG.md
 ├── .gitignore
 └── README.md
+```
 
 ---
 
-Installation Guide
+## Installation Guide
 
-1. Clone the Repository
+**1. Clone the repository**
 
+```bash
 git clone https://github.com/pramodj551-oss/Part2-Cybersecurity-ML-Pipeline.git
 cd Part2-Cybersecurity-ML-Pipeline
+```
 
-2. Create a Virtual Environment
+**2. Create a virtual environment**
 
+```bash
 python -m venv venv
+```
 
-Windows
-
+Windows:
+```bash
 venv\Scripts\activate
+```
 
-Linux / macOS
-
+Linux / macOS:
+```bash
 source venv/bin/activate
+```
 
-3. Install Required Packages
+**3. Install required packages**
 
+```bash
 pip install -r requirements.txt
+```
 
-4. Run the Complete Pipeline
+**4. Run the complete pipeline**
 
+```bash
 python run_pipeline.py
+```
 
-5. Launch the EDA Notebook
+**5. Launch the EDA notebook**
 
+```bash
 jupyter notebook notebooks/EDA.ipynb
+```
 
 ---
 
-Expected Outputs
+## Expected Outputs
 
-After running the project successfully, the following artifacts will be generated:
+After running the project successfully, the following artifacts are generated:
 
-- Trained Machine Learning Model
-- Cleaned Dataset
-- Feature Importance Report
-- Model Evaluation Report
-- Prediction Results
-- EDA Summary Report
-- Pipeline Log File
+- Trained Machine Learning model
+- Cleaned dataset
+- Feature importance report
+- Model evaluation report
+- Prediction results
+- EDA summary report
+- Pipeline log file
 
 ---
 
-Reproducibility
+## Reproducibility
 
-This project is designed to be reproducible.
-
-To reproduce the results:
+This project is designed to be reproducible. To reproduce the results:
 
 1. Clone the repository.
 2. Install all dependencies.
-3. Place the dataset inside the "data/" directory.
-4. Run "run_pipeline.py".
-5. Execute "EDA.ipynb" if exploratory analysis is required.
+3. Place the dataset inside the `data/` directory.
+4. Run `run_pipeline.py`.
+5. Execute `EDA.ipynb` if exploratory analysis is required.
 
 Following these steps should generate the same outputs, provided the same dataset and library versions are used.
+
+---
+
+## Project Metadata
+
+| | |
+|---|---|
+| **Version** | 2.2 |
+| **Project Type** | End-to-End Machine Learning Pipeline |
+| **Domain** | Cybersecurity Analytics |
+| **Model Type** | Classification (Severity Prediction) |
+| **Status** | Production Ready 🚀 |
+
+---
+
+## License
+
+See [LICENSE](LICENSE) for details.
