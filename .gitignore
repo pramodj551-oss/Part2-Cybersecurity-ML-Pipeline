@@ -1,136 +1,48 @@
-==========================================
-
-Python
-
-==========================================
-
-pycache/
+# Python
+__pycache__/
 *.py[cod]
-*$py.class
 
-==========================================
-
-Virtual Environments
-
-==========================================
-
+# Virtual environments
 .venv/
 venv/
 env/
-ENV/
 
-==========================================
+# Environment / secrets
+.env
+.env.*
+!.env.example
 
-Jupyter Notebook
-
-==========================================
-
-.ipynb_checkpoints/
-
-==========================================
-
-IDE Settings
-
-==========================================
-
-.vscode/
-.idea/
-
-==========================================
-
-Operating System Files
-
-==========================================
-
-.DS_Store
-Thumbs.db
-desktop.ini
-
-==========================================
-
-Logs
-
-==========================================
-
+# Logs
 *.log
 logs/
 
-==========================================
-
-Environment Variables
-
-==========================================
-
-.env
-
-==========================================
-
-Build & Distribution
-
-==========================================
-
+# Test / build
+.pytest_cache/
+.coverage
+htmlcov/
 build/
 dist/
 *.egg-info/
 
-==========================================
+# Model artifacts
+models/*.pkl
+models/*.joblib
 
-Python Testing
-
-==========================================
-
-.pytest_cache/
-.coverage
-htmlcov/
-
-==========================================
-
-Model Artifacts
-
-==========================================
-
-models/.pkl
-models/.joblib
-
-Keep directory structure
-
-!models/.gitkeep
-
-==========================================
-
-Generated Outputs
-
-==========================================
-
+# Generated outputs
 outputs/*
 !outputs/.gitkeep
 
-==========================================
-
-Processed Data
-
-==========================================
-
+# Processed data
 data/processed/*
 !data/processed/.gitkeep
 
-==========================================
-
-Temporary Files
-
-==========================================
-
-*.tmp
-*.temp
-*.bak
-*.swp
-
-==========================================
-
-Local SQLite Databases
-
-==========================================
-
+# Local databases
 *.db
 *.sqlite
 *.sqlite3
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

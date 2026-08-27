@@ -2,316 +2,107 @@
 
 **Part 2 of the End-to-End Applied AI & ML Data Product Capstone Project**
 
-A production-ready, modular Machine Learning pipeline for cybersecurity incident analysis, preprocessing, feature engineering, model training, evaluation, and prediction. This project demonstrates an end-to-end ML workflow built using software engineering best practices, making it suitable for real-world applications and portfolio showcase.
-
----
+A modular, reproducible cybersecurity **regression** pipeline that predicts `severity_score` from historical incident data.
 
 ## Project Overview
 
-Cybersecurity organizations generate large volumes of incident data every day. Transforming this raw data into meaningful insights requires a structured, reproducible machine learning pipeline.
+The pipeline covers data loading and schema validation, train/test splitting, training-only missing-value fitting, encoding/scaling, variance filtering, model-based feature selection, regression model comparison, holdout evaluation, artifact persistence, and inference.
 
-This repository answers the second analytics question in the capstone series — **Predictive Analytics: What is likely to happen?** — by learning patterns from historical incidents to classify future incident severity/risk, so analysts can focus on the most critical events first.
+## Target and Model Type
 
-The trained model produced here feeds directly into the interactive dashboard (Part 3) and the AI-powered assistant (Part 4).
-
-The pipeline covers:
-
-- Data loading and validation
-- Exploratory Data Analysis (EDA)
-- Data preprocessing and missing value handling
-- Feature engineering and feature selection
-- Machine learning model training
-- Model evaluation and comparison
-- Model persistence and prediction pipeline
-- Logging and configuration management
-- Reproducible, modular project structure
-
----
-
-## Business Problem
-
-Cybersecurity teams receive thousands of security alerts every day. Historical reports explain what has already happened — but organizations also need to anticipate future risk. Manual prioritization is slow and inconsistent, making it difficult to flag high-risk incidents early.
-
-This project trains a Machine Learning model on historical cybersecurity incident data to predict incident severity, helping analysts prioritize the most critical events first.
-
----
-
-## Analytics Objectives
-
-This project aims to answer:
-
-- Which cybersecurity incidents are likely to become high risk?
-- Can incident severity be predicted from historical patterns?
-- Which features contribute most to cybersecurity risk?
-- Which Machine Learning algorithm performs best?
-- How accurately can future incidents be classified?
-
----
+- **Target:** `severity_score`
+- **Problem type:** Regression
+- **Models:** Linear Regression, Decision Tree Regressor, Random Forest Regressor, Gradient Boosting Regressor
+- **Model selection:** 5-fold cross-validation on the training set; the test set is reserved for final holdout evaluation.
 
 ## Dataset
 
-This project uses the cleaned, feature-engineered cybersecurity incident dataset produced in **Part 1**.
-
-**Location:**
-```text
-data/processed/engineered_incidents.csv
-```
-
-If unavailable, regenerate it by running the Part 1 ETL pipeline.
-
-**Key fields:**
-
-| Field | Description |
-|---|---|
-| Incident ID | Unique identifier for each incident |
-| Incident Date | Date the incident occurred |
-| Attack Type | Category of cyberattack |
-| Severity Score | Target variable — incident severity/risk level |
-| Industry Sector | Sector affected |
-| Region | Geographic region |
-| Threat Actor | Source/type of threat actor |
-| Records Affected | Number of records compromised |
-| Downtime Hours | System downtime caused by the incident |
-| Financial Impact | Estimated financial loss |
-| Regulatory Fine | Fine imposed, if any |
-| Response Team Size | Size of the incident response team |
-| Engineered Features | Additional features derived in Part 1 |
-
----
-
-## Machine Learning Workflow
-
-1. Data Loading
-2. Data Validation
-3. Feature Encoding
-4. Missing Value Handling
-5. Feature Scaling (where required)
-6. Feature Selection
-7. Train/Test Split
-8. Model Training
-9. Model Evaluation
-10. Model Comparison
-11. Best Model Selection
-12. Model Saving
-
-The final trained model is a **Random Forest classifier**, saved for future inference and dashboard integration.
-
----
-
-## Technology Stack
-
-| Category | Technology |
-|---|---|
-| Programming Language | Python 3.10+ |
-| Data Processing | Pandas, NumPy |
-| Data Visualization | Matplotlib |
-| Machine Learning | Scikit-learn |
-| Notebook Environment | Jupyter Notebook / Google Colab |
-| Logging | Python Logging Module |
-| Configuration | Python Configuration Module |
-| Version Control | Git & GitHub |
-
----
-
-## Project Architecture
-
-The project follows a modular architecture where each component has a dedicated responsibility:
+The repository contains the raw dataset at:
 
 ```text
-                 +----------------------+
-                 |   Raw Cybersecurity  |
-                 |       Dataset        |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |    Data Loader       |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |   Preprocessing      |
-                 | Validation           |
-                 | Missing Values       |
-                 | Encoding             |
-                 | Scaling              |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |  Feature Selection   |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 |   Model Training     |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 | Model Evaluation     |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 | Prediction Pipeline  |
-                 +----------+-----------+
-                            |
-                            v
-                 +----------------------+
-                 | Saved Model & Output |
-                 +----------------------+
+data/raw/cybersecurity_incident_reports.csv
 ```
 
----
+The target is `severity_score`. The current implementation uses the configured numerical and categorical incident fields in `src/config.py`.
 
-## Key Features
+## Workflow
 
-- End-to-end, production-ready ML pipeline
-- Modular Python architecture for maintainability and scalability
-- Comprehensive EDA notebook (25 production-quality cells)
-- Data validation, cleaning, and missing value handling
-- Feature engineering and feature selection
-- Random Forest classification model
-- Evaluation with standard classification metrics
-- Standalone prediction pipeline
-- Logging support and centralized configuration management
-- Exportable reports
-- Easy to extend and maintain
+```text
+Raw Dataset
+   ↓
+Schema Validation
+   ↓
+Train/Test Split
+   ↓
+Train-only Imputation
+   ↓
+Fitted Preprocessor
+   ↓
+Feature Selection (train only)
+   ↓
+5-fold CV on Training Data
+   ↓
+Best Regression Model
+   ↓
+Final Holdout Evaluation on Test Data
+   ↓
+Model + Preprocessor + Feature Contract
+   ↓
+Prediction
+```
 
----
+## Generated Artifacts
+
+The pipeline generates model, metadata, feature-importance, comparison, evaluation, prediction, and logging outputs under the configured `models/` and `outputs/` directories. Runtime model/output artifacts are intentionally ignored by Git.
 
 ## Repository Structure
 
 ```text
 Part2-Cybersecurity-ML-Pipeline/
-│
-├── data/
-│   ├── raw/
-│   └── processed/
-│
-├── notebooks/
-│   └── EDA.ipynb
-│
-├── models/
-│   └── random_forest_model.pkl
-│
-├── outputs/
-│   ├── eda_summary.csv
-│   ├── descriptive_statistics.csv
-│   ├── feature_importance.csv
-│   └── evaluation_report.csv
-│
-├── logs/
-│   └── pipeline.log
-│
+├── data/raw/cybersecurity_incident_reports.csv
+├── notebooks/EDA.ipynb
 ├── src/
 │   ├── config.py
-│   ├── logger.py
-│   ├── utils.py
 │   ├── data_loader.py
-│   ├── preprocessing.py
 │   ├── feature_selection.py
-│   ├── model_training.py
+│   ├── logger.py
 │   ├── model_evaluation.py
+│   ├── model_training.py
+│   ├── pipeline.py
 │   ├── predict.py
-│   └── pipeline.py
-│
+│   ├── preprocessing.py
+│   └── utils.py
+├── tests/test_smoke.py
 ├── run_pipeline.py
 ├── requirements.txt
 ├── LICENSE
 ├── CHANGELOG.md
-├── .gitignore
-└── README.md
+└── .gitignore
 ```
 
----
-
-## Installation Guide
-
-**1. Clone the repository**
-
-```bash
-git clone https://github.com/pramodj551-oss/Part2-Cybersecurity-ML-Pipeline.git
-cd Part2-Cybersecurity-ML-Pipeline
-```
-
-**2. Create a virtual environment**
+## Installation
 
 ```bash
 python -m venv venv
-```
-
-Windows:
-```bash
-venv\Scripts\activate
-```
-
-Linux / macOS:
-```bash
 source venv/bin/activate
-```
-
-**3. Install required packages**
-
-```bash
 pip install -r requirements.txt
-```
-
-**4. Run the complete pipeline**
-
-```bash
 python run_pipeline.py
 ```
 
-**5. Launch the EDA notebook**
+Windows activation:
 
-```bash
-jupyter notebook notebooks/EDA.ipynb
+```text
+venv\Scripts\activate
 ```
 
----
+## Reproducibility and Security
 
-## Expected Outputs
+- `RANDOM_STATE=42` and `CV_FOLDS=5` are centralized in `src/config.py`.
+- Cross-validation is performed only on training data.
+- The fitted preprocessor is reused during inference.
+- The selected feature names are persisted in model metadata and validated during prediction.
+- `.env` files, model binaries, generated outputs, processed datasets, logs, and local databases are ignored by Git.
 
-After running the project successfully, the following artifacts are generated:
+## Status
 
-- Trained Machine Learning model
-- Cleaned dataset
-- Feature importance report
-- Model evaluation report
-- Prediction results
-- EDA summary report
-- Pipeline log file
-
----
-
-## Reproducibility
-
-This project is designed to be reproducible. To reproduce the results:
-
-1. Clone the repository.
-2. Install all dependencies.
-3. Place the dataset inside the `data/` directory.
-4. Run `run_pipeline.py`.
-5. Execute `EDA.ipynb` if exploratory analysis is required.
-
-Following these steps should generate the same outputs, provided the same dataset and library versions are used.
-
----
-
-## Project Metadata
-
-| | |
-|---|---|
-| **Version** | 2.2 |
-| **Project Type** | End-to-End Machine Learning Pipeline |
-| **Domain** | Cybersecurity Analytics |
-| **Model Type** | Classification (Severity Prediction) |
-| **Status** | Production Ready 🚀 |
-
----
-
-## License
-
-See [LICENSE](LICENSE) for details.
+**Production-ready regression pipeline — subject to validation of business-time feature availability for `severity_score`.**
