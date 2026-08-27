@@ -62,7 +62,7 @@ class Predictor:
         self.validate_input(data)
         if self.preprocessor is None:
             raise ValueError("Preprocessor has not been loaded.")
-        transformed, _ = self.preprocessor.transform(data)
+        transformed = self.preprocessor.transform(data)
         return self._align_selected_features(transformed)
 
     def predict_batch(self, data):
