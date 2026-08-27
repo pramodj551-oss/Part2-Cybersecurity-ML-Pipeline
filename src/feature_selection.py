@@ -25,6 +25,7 @@ class FeatureSelector:
             n_jobs=-1,
         )
         self.selected_features_: List[str] = []
+        self.selected_feature_indices_: List[int] = []
         self.feature_importance_: pd.DataFrame | None = None
 
     def remove_low_variance_features(
@@ -97,7 +98,24 @@ class FeatureSelector:
         logger.info("Total Features : %d", len(self.feature_importance_))
         logger.info("Selected Features : %d", len(self.selected_features_))
 
-    def run(self, X, y, feature_names: list[str], top_n: int = 20):
+    def run(
+        self,
+        X=None,
+        y=None,
+        feature_names: list[str] | None = None,
+        top_n: int = 20,
+        *,
+        X_train=None,
+        y_train=None,
+    ):
+        """Run feature selection with backward-compatible train aliases."""
+        if X is None:
+            X = X_train
+        if y is None:
+            y = y_train
+        if X is None or y is None or feature_names is None:
+            raise ValueError("X/X_train, y/y_train and feature_names are required.")
+
         log_section("Starting Feature Selection Pipeline")
         self.validate_feature_names(feature_names, X)
         X_filtered, filtered_names = self.remove_low_variance_features(X, feature_names)
@@ -107,6 +125,7 @@ class FeatureSelector:
         self.export_feature_importance()
         self.feature_summary()
         selected_indices = [filtered_names.index(name) for name in selected_features]
+        self.selected_feature_indices_ = selected_indices
         X_selected = X_filtered[:, selected_indices]
         log_success("Feature selection pipeline completed successfully.")
         return X_selected, selected_features, importance_df
