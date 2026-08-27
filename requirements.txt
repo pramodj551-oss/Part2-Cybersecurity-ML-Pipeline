@@ -1,42 +1,29 @@
-==========================================
+# AI-Powered Cybersecurity ML Pipeline
+# Part 2 - Requirements
+# Python 3.11+
 
-AI-Powered Cybersecurity ML Pipeline
-
-Part 2 - Requirements
-
-Python Version: 3.11+
-
-==========================================
-
-Data Processing
-
+# Data Processing
 pandas>=2.2.2
 numpy>=1.26.4
 
-Machine Learning
-
+# Machine Learning
 scikit-learn>=1.5.1
 joblib>=1.4.2
 
-Visualization
-
+# Visualization
 matplotlib>=3.9.1
 
-Database
-
+# Database
 SQLAlchemy>=2.0.31
 
-Notebook Support
-
+# Notebook Support
 jupyter>=1.1.1
 notebook>=7.2.1
 ipykernel>=6.29.5
 
-Testing
-
+# Testing
 pytest>=8.2.2
 
-Utilities
-
+# Utilities
 python-dateutil>=2.9.0
 tqdm>=4.66.4
