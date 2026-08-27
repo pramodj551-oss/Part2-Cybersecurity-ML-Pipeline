@@ -56,3 +56,16 @@ jobs:
           test -s outputs/prediction_results.csv
           test -s outputs/residual_report.csv
           test -s outputs/predictions.csv
+
+      - name: Upload ML audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-audit-artifacts
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            outputs/metrics.json
+            outputs/model_comparison.csv
+            outputs/prediction_results.csv
+            models/model_metadata.json
