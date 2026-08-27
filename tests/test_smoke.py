@@ -30,12 +30,21 @@ def test_model_training_cross_validation_uses_train_data(monkeypatch):
     import numpy as np
     import src.model_training as mt
     seen = {}
+
     def fake_cv(model, X, y, **kwargs):
-        seen["X"] = X; seen["y"] = y
+        seen["X"] = X
+        seen["y"] = y
         return np.array([0.5, 0.6, 0.7, 0.6, 0.5])
+
     monkeypatch.setattr(mt, "cross_val_score", fake_cv)
     trainer = mt.ModelTrainer()
-    X_train = np.arange(20, dtype=float).reshape(10, 2); y_train = np.arange(10, dtype=float)
-    X_test = np.arange(8, dtype=float).reshape(4, 2); y_test = np.arange(4, dtype=float)
-    trainer.evaluate_model("Linear Regression", trainer.get_model("Linear Regression"), X_train, y_train, X_test, y_test)
+    X_train = np.arange(20, dtype=float).reshape(10, 2)
+    y_train = np.arange(10, dtype=float)
+    X_test = np.arange(8, dtype=float).reshape(4, 2)
+    y_test = np.arange(4, dtype=float)
+    model = trainer.get_model("Linear Regression")
+    model.fit(X_train, y_train)
+
+    trainer.evaluate_model("Linear Regression", model, X_train, y_train, X_test, y_test)
+
     assert seen["X"] is X_train and seen["y"] is y_train
