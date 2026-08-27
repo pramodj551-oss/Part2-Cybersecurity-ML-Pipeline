@@ -1,0 +1,52 @@
+name: Part 2 Cybersecurity ML Pipeline CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Compile Python modules
+        run: python -m compileall -q src run_pipeline.py
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Run complete ML pipeline
+        run: python run_pipeline.py
+
+      - name: Verify required runtime artifacts
+        run: |
+          test -f models/best_model.pkl
+          test -f models/scaler.pkl
+          test -f models/label_encoder.pkl
+          test -f models/feature_columns.pkl
+          test -f outputs/metrics.json
+          test -f outputs/feature_importance.csv
+          test -f outputs/model_comparison.csv
+          test -f outputs/classification_report.txt
+          test -f outputs/confusion_matrix.png
+          test -f outputs/roc_curve.png
+          test -s outputs/metrics.json
+          test -s outputs/model_comparison.csv
