@@ -11,6 +11,7 @@ import pandas as pd
 
 from src.config import (
     BEST_MODEL_FILE,
+    FEATURE_IMPORTANCE_FILE,
     PREPROCESSOR_FILE,
     PREDICTION_OUTPUT_FILE,
     PREDICTION_COLUMN,
@@ -67,6 +68,64 @@ class Predictor:
             raise ValueError("Input DataFrame is empty.")
         logger.info("Prediction input validated.")
 
+    def _align_selected_features(self, transformed_data):
+        """Apply the same top features used during model training."""
+        if self.model is None:
+            raise ValueError("Model has not been loaded.")
+        if self.preprocessor is None:
+            raise ValueError("Preprocessor has not been loaded.")
+
+        expected_features = getattr(self.model, "n_features_in_", None)
+        if expected_features is None:
+            return transformed_data
+
+        actual_features = transformed_data.shape[1]
+        if actual_features == expected_features:
+            return transformed_data
+        if actual_features < expected_features:
+            raise ValueError(
+                f"Preprocessed input has {actual_features} features, "
+                f"but model expects {expected_features}."
+            )
+
+        if not FEATURE_IMPORTANCE_FILE.exists():
+            raise FileNotFoundError(
+                "Feature importance artifact is required to reproduce "
+                "the training-time feature selection."
+            )
+
+        importance = pd.read_csv(FEATURE_IMPORTANCE_FILE)
+        if "feature" not in importance.columns:
+            raise ValueError("Feature importance artifact has no 'feature' column.")
+
+        selected_names = importance.head(expected_features)["feature"].tolist()
+        feature_names = list(self.preprocessor.get_feature_names_out())
+        feature_indices = []
+        missing = []
+        for name in selected_names:
+            if name in feature_names:
+                feature_indices.append(feature_names.index(name))
+            else:
+                missing.append(name)
+
+        if missing:
+            raise ValueError(
+                "Selected training features are missing from the prediction "
+                f"preprocessor output: {missing}"
+            )
+        if len(feature_indices) != expected_features:
+            raise ValueError(
+                f"Unable to reproduce {expected_features} training features; "
+                f"resolved {len(feature_indices)}."
+            )
+
+        logger.info(
+            "Applying training-time feature selection: %d -> %d features.",
+            actual_features,
+            len(feature_indices),
+        )
+        return transformed_data[:, feature_indices]
+
     def preprocess_input(self, data: pd.DataFrame):
         """Transform input data using the fitted preprocessor."""
         log_section("Preprocessing Input Data")
@@ -74,6 +133,7 @@ class Predictor:
         if self.preprocessor is None:
             raise ValueError("Preprocessor has not been loaded.")
         transformed_data = self.preprocessor.transform(data)
+        transformed_data = self._align_selected_features(transformed_data)
         logger.info("Input preprocessing completed.")
         log_success("Input data transformed successfully.")
         return transformed_data
