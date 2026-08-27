@@ -85,7 +85,8 @@ class ModelTrainer:
     def evaluate_model(self, model_name: str, model, X_test, y_test) -> dict:
         predictions = model.predict(X_test)
         mae = mean_absolute_error(y_test, predictions)
-        rmse = mean_squared_error(y_test, predictions, squared=False)
+        # Compute RMSE without the deprecated/removed `squared` keyword.
+        rmse = mean_squared_error(y_test, predictions) ** 0.5
         r2 = r2_score(y_test, predictions)
         cv_scores = cross_val_score(
             model,
