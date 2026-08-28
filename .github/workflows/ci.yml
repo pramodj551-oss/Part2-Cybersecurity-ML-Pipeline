@@ -10,13 +10,16 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -38,6 +41,9 @@ jobs:
 
       - name: Run STEP 17 Feature Engineering + Ablation Study
         run: python -m src.feature_engineering
+
+      - name: Run STEP 18 Hyperparameter Optimization
+        run: python -m src.hyperparameter_optimization
 
       - name: Validate and execute EDA notebook
         run: |
@@ -63,9 +69,12 @@ jobs:
           test -f outputs/engineered_features.csv
           test -f outputs/ablation_results.csv
           test -f outputs/feature_engineering_report.json
+          test -f outputs/hyperparameter_optimization.csv
+          test -f outputs/hyperparameter_optimization_report.json
           test -s outputs/feature_importance.csv
           test -s outputs/evaluation_report.json
           test -s outputs/ablation_results.csv
+          test -s outputs/hyperparameter_optimization.csv
 
       - name: Upload dashboard-compatible ML artifacts
         if: success()
@@ -86,6 +95,8 @@ jobs:
             outputs/engineered_features.csv
             outputs/ablation_results.csv
             outputs/feature_engineering_report.json
+            outputs/hyperparameter_optimization.csv
+            outputs/hyperparameter_optimization_report.json
 
       - name: Upload ML audit artifacts
         if: always()
