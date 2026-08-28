@@ -50,7 +50,7 @@ jobs:
           print(f"EDA notebook JSON validation PASS: {len(data['cells'])} cells")
           PY
           jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
-          test -s EDA_executed.ipynb
+          test -s notebooks/EDA_executed.ipynb
 
       - name: Verify required runtime artifacts
         run: |
@@ -72,7 +72,7 @@ jobs:
           test -s outputs/prediction_results.csv
           test -s outputs/residual_report.csv
           test -s outputs/predictions.csv
-          test -s EDA_executed.ipynb
+          test -s notebooks/EDA_executed.ipynb
 
       - name: Upload ML audit artifacts
         if: always()
@@ -91,4 +91,4 @@ jobs:
             outputs/predictions.csv
             outputs/prediction_summary.json
             models/model_metadata.json
-            EDA_executed.ipynb
+            notebooks/EDA_executed.ipynb
