@@ -68,4 +68,9 @@ jobs:
             outputs/metrics.json
             outputs/model_comparison.csv
             outputs/prediction_results.csv
+            outputs/evaluation_report.json
+            outputs/evaluation_summary.json
+            outputs/residual_report.csv
+            outputs/predictions.csv
+            outputs/prediction_summary.json
             models/model_metadata.json
