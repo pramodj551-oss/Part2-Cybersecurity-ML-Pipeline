@@ -22,6 +22,8 @@ class Preprocessor:
         self.numeric_imputer = SimpleImputer(strategy="median")
         self.categorical_imputer = SimpleImputer(strategy="most_frequent")
         self._missing_value_imputers_fitted = False
+        self.train_df_before_imputation_: pd.DataFrame | None = None
+        self.test_df_before_imputation_: pd.DataFrame | None = None
 
     def validate_dataset(self, df: pd.DataFrame) -> pd.DataFrame:
         log_section("Dataset Validation")
@@ -131,6 +133,10 @@ class Preprocessor:
             df = self.convert_boolean_columns(df)
             df = self.validate_data_types(df)
             train_df, test_df = self.split_data(df)
+            # Preserve the cleaned-but-unfitted split so CV can fit every
+            # preprocessing step inside each fold without using other folds.
+            self.train_df_before_imputation_ = train_df.copy()
+            self.test_df_before_imputation_ = test_df.copy()
             train_df = self.handle_missing_values(train_df)
             test_df = self.transform_missing_values(test_df)
             X_train, y_train, preprocessor = self.fit_transform(train_df)
