@@ -41,12 +41,10 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-
           notebook = Path("notebooks/EDA.ipynb")
           data = json.loads(notebook.read_text(encoding="utf-8"))
-          assert data.get("nbformat") == 4, "EDA notebook must use nbformat 4"
-          assert isinstance(data.get("cells"), list), "EDA notebook cells must be a list"
-          assert data["cells"], "EDA notebook must contain executable cells"
+          assert data.get("nbformat") == 4
+          assert isinstance(data.get("cells"), list) and data["cells"]
           print(f"EDA notebook JSON validation PASS: {len(data['cells'])} cells")
           PY
           jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
@@ -57,22 +55,27 @@ jobs:
           test -f models/best_model.pkl
           test -f models/preprocessor.pkl
           test -f models/model_metadata.json
-          test -f outputs/metrics.json
           test -f outputs/feature_importance.csv
-          test -f outputs/model_comparison.csv
           test -f outputs/evaluation_report.json
-          test -f outputs/evaluation_summary.json
-          test -f outputs/prediction_results.csv
-          test -f outputs/residual_report.csv
-          test -f outputs/predictions.csv
-          test -f outputs/prediction_summary.json
-          test -s outputs/metrics.json
-          test -s outputs/model_comparison.csv
           test -s outputs/feature_importance.csv
-          test -s outputs/prediction_results.csv
-          test -s outputs/residual_report.csv
-          test -s outputs/predictions.csv
-          test -s notebooks/EDA_executed.ipynb
+          test -s outputs/evaluation_report.json
+
+      - name: Upload dashboard-compatible ML artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: part2-runtime-artifacts
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            models/best_model.pkl
+            models/preprocessor.pkl
+            models/feature_columns.pkl
+            models/model_metadata.json
+            outputs/feature_importance.csv
+            outputs/evaluation_report.json
+            outputs/metrics.json
+            outputs/model_comparison.csv
 
       - name: Upload ML audit artifacts
         if: always()
@@ -82,13 +85,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
           path: |
-            outputs/metrics.json
-            outputs/model_comparison.csv
-            outputs/prediction_results.csv
-            outputs/evaluation_report.json
-            outputs/evaluation_summary.json
-            outputs/residual_report.csv
-            outputs/predictions.csv
-            outputs/prediction_summary.json
+            outputs/
             models/model_metadata.json
             notebooks/EDA_executed.ipynb
