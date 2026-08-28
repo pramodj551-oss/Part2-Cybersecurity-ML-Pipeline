@@ -6,6 +6,19 @@ The format follows the principles of Keep a Changelog and the project follows Se
 
 ---
 
+[2.1.0] - 2026-08-28
+
+Added
+
+- STEP 17 feature engineering and ablation study
+- STEP 18 automated hyperparameter optimization
+- Leakage-safe RandomizedSearchCV pipelines for Random Forest and Gradient Boosting
+- Reproducible cross-validation and deterministic search configuration
+- Hyperparameter optimization CSV and JSON audit reports
+- CI generation and verification of STEP 17 and STEP 18 artifacts
+
+---
+
 [2.0.0] - 2026-07-15
 
 Added
@@ -71,16 +84,6 @@ Added
 ---
 
 Upcoming Releases
-
-Version 2.1
-
-Planned improvements:
-
-- Cross-validation support
-- Automated model selection
-- Advanced feature engineering
-- Improved hyperparameter optimization
-- Enhanced evaluation reports
 
 Version 3.0
 
