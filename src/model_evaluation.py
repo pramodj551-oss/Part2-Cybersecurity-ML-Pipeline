@@ -72,7 +72,13 @@ class ModelEvaluator:
     def export_reports(self, prediction_report, residual_report):
         prediction_report.to_csv(PREDICTION_RESULTS_FILE, index=False)
         residual_report.to_csv(RESIDUAL_REPORT_FILE, index=False)
-        pd.DataFrame([{"Metric": k, "Value": v} for k, v in self.metrics_.items()]).to_csv(EVALUATION_REPORT_FILE, index=False)
+        # EVALUATION_REPORT_FILE has a .json extension, so write valid JSON.
+        with open(EVALUATION_REPORT_FILE, "w", encoding="utf-8") as file:
+            json.dump(
+                [{"Metric": key, "Value": float(value)} for key, value in self.metrics_.items()],
+                file,
+                indent=4,
+            )
 
     def create_evaluation_summary(self):
         if not self.metrics_ or self.residuals_ is None:
