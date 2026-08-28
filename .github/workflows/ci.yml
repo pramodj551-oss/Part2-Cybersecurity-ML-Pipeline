@@ -45,6 +45,12 @@ jobs:
       - name: Run STEP 18 Hyperparameter Optimization
         run: python -m src.hyperparameter_optimization
 
+      - name: Run STEP 19 Model Calibration + Threshold Optimization
+        run: python scripts/run_step19.py
+
+      - name: Run STEP 20 Model Explainability + Feature Importance
+        run: python scripts/run_step20.py
+
       - name: Validate and execute EDA notebook
         run: |
           python - <<'PY'
@@ -71,10 +77,18 @@ jobs:
           test -f outputs/feature_engineering_report.json
           test -f outputs/hyperparameter_optimization.csv
           test -f outputs/hyperparameter_optimization_report.json
+          test -f outputs/calibration_results.csv
+          test -f outputs/threshold_optimization.csv
+          test -f outputs/calibration_report.json
+          test -f outputs/explainability_feature_importance.csv
+          test -f outputs/local_prediction_explanation.csv
+          test -f outputs/model_explainability_report.json
           test -s outputs/feature_importance.csv
           test -s outputs/evaluation_report.json
           test -s outputs/ablation_results.csv
           test -s outputs/hyperparameter_optimization.csv
+          test -s outputs/explainability_feature_importance.csv
+          test -s outputs/local_prediction_explanation.csv
 
       - name: Upload dashboard-compatible ML artifacts
         if: success()
@@ -97,6 +111,12 @@ jobs:
             outputs/feature_engineering_report.json
             outputs/hyperparameter_optimization.csv
             outputs/hyperparameter_optimization_report.json
+            outputs/calibration_results.csv
+            outputs/threshold_optimization.csv
+            outputs/calibration_report.json
+            outputs/explainability_feature_importance.csv
+            outputs/local_prediction_explanation.csv
+            outputs/model_explainability_report.json
 
       - name: Upload ML audit artifacts
         if: always()
