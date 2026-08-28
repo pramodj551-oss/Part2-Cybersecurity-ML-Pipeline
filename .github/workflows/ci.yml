@@ -36,6 +36,22 @@ jobs:
       - name: Run complete ML pipeline
         run: python -m src.run_pipeline
 
+      - name: Validate and execute EDA notebook
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          notebook = Path("notebooks/EDA.ipynb")
+          data = json.loads(notebook.read_text(encoding="utf-8"))
+          assert data.get("nbformat") == 4, "EDA notebook must use nbformat 4"
+          assert isinstance(data.get("cells"), list), "EDA notebook cells must be a list"
+          assert data["cells"], "EDA notebook must contain executable cells"
+          print(f"EDA notebook JSON validation PASS: {len(data['cells'])} cells")
+          PY
+          jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
+          test -s EDA_executed.ipynb
+
       - name: Verify required runtime artifacts
         run: |
           test -f models/best_model.pkl
@@ -56,6 +72,7 @@ jobs:
           test -s outputs/prediction_results.csv
           test -s outputs/residual_report.csv
           test -s outputs/predictions.csv
+          test -s EDA_executed.ipynb
 
       - name: Upload ML audit artifacts
         if: always()
@@ -74,3 +91,4 @@ jobs:
             outputs/predictions.csv
             outputs/prediction_summary.json
             models/model_metadata.json
+            EDA_executed.ipynb
