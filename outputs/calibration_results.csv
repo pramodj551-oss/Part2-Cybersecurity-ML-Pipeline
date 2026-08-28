@@ -1,2 +1,0 @@
-threshold,precision,recall,f1,roc_auc,pr_auc,false_positives,false_negatives
-0.50,0.90,0.88,0.89,0.94,0.92,4,5
