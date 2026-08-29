@@ -1,6 +1,7 @@
 """STEP 22 runtime entry point: retraining, comparison, promotion, registry."""
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
@@ -12,18 +13,17 @@ if str(PROJECT_ROOT) not in sys.path:
 import pandas as pd
 
 from src.config import (
-    CATEGORICAL_FEATURES,
     FEATURE_SELECTION_TOP_N,
-    NUMERICAL_FEATURES,
     RAW_DATA_FILE,
     TARGET_COLUMN,
     MODEL_METADATA_FILE,
     MODEL_DIR,
+    CV_FOLDS,
+    CATEGORICAL_FEATURES,
+    NUMERICAL_FEATURES,
 )
-from src.data_loader import DataLoader
 from src.feature_selection import FeatureSelector
 from src.model_lifecycle import (
-    MODEL_REGISTRY_FILE,
     RETRAINING_DECISION_FILE,
     compare_models,
     load_json,
@@ -56,7 +56,7 @@ def main() -> int:
     if not required:
         decision["action"] = "no_retraining"
         decision["promotion"] = "not_applicable"
-        RETRAINING_DECISION_FILE.write_text(__import__("json").dumps(decision, indent=2), encoding="utf-8")
+        RETRAINING_DECISION_FILE.write_text(json.dumps(decision, indent=2), encoding="utf-8")
         write_registry(current_metadata, decision, "active")
         print("STEP 22: no retraining required; current model remains active.")
         return 0
@@ -88,8 +88,7 @@ def main() -> int:
     candidate_name = trainer.best_model_name
     candidate_report = trainer.model_comparison_report(results)
 
-    candidate_model = trainer.best_model
-    save_model(candidate_model, CANDIDATE_MODEL_FILE)
+    save_model(trainer.best_model, CANDIDATE_MODEL_FILE)
     comparison = compare_models(current_metadata, candidate_name, candidate_report)
     save_comparison(comparison)
 
@@ -105,24 +104,30 @@ def main() -> int:
     )
 
     if comparison["promotion_eligible"]:
+        candidate_row = candidate_report.loc[candidate_report["Model"] == candidate_name].iloc[0]
         candidate_metadata = {
             "model_name": candidate_name,
             "training_timestamp": datetime.now(timezone.utc).isoformat(),
-            "r2_score": comparison["candidate_test_r2"],
-            "rmse": comparison["candidate_test_rmse"],
-            "mae": comparison["candidate_test_mae"],
-            "cv_mean": comparison["candidate_cv_mean"],
-            "cv_std": float(candidate_report.loc[candidate_report["Model"] == candidate_name, "CV Std"].iloc[0]),
+            "r2_score": float(candidate_row["R2 Score"]),
+            "rmse": float(candidate_row["RMSE"]),
+            "mae": float(candidate_row["MAE"]),
+            "cv_mean": float(candidate_row["CV Mean"]),
+            "cv_std": float(candidate_row["CV Std"]),
             "cv_method": "fold_safe_preprocessing_and_feature_selection",
-            "cv_folds": trainer.models and 5,
+            "cv_folds": CV_FOLDS,
+            "prediction_features": [
+                c for c in NUMERICAL_FEATURES + CATEGORICAL_FEATURES if c in df.columns
+            ],
+            "target_column": TARGET_COLUMN,
         }
         promote_candidate(CANDIDATE_MODEL_FILE, candidate_metadata, selected_features)
         registry_status = "promoted"
     else:
         registry_status = "active"
 
-    RETRAINING_DECISION_FILE.write_text(__import__("json").dumps(decision, indent=2), encoding="utf-8")
-    write_registry(current_metadata if registry_status == "active" else load_json(MODEL_METADATA_FILE), decision, registry_status)
+    RETRAINING_DECISION_FILE.write_text(json.dumps(decision, indent=2), encoding="utf-8")
+    registry_metadata = load_json(MODEL_METADATA_FILE) if registry_status == "promoted" else current_metadata
+    write_registry(registry_metadata, decision, registry_status)
     print(f"STEP 22 completed: {decision['promotion']} ({candidate_name}).")
     return 0
 
