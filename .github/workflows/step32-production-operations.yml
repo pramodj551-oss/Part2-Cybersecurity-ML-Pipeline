@@ -21,7 +21,17 @@ jobs:
       - name: Security audit
         run: |
           test ! -f .env
-          python -c "from pathlib import Path; assert not any('api_key="' in p.read_text(encoding='utf-8').lower() for p in Path('src').rglob('*.py')); print('Security PASS')"
+          python - <<'PY'
+          from pathlib import Path
+          forbidden = 'api_key=' + chr(34)
+          hits = [
+              str(path)
+              for path in Path("src").rglob("*.py")
+              if forbidden in path.read_text(encoding="utf-8").lower()
+          ]
+          assert not hits, "Potential hardcoded API key: " + ", ".join(hits)
+          print("Security PASS")
+          PY
       - name: Build artifacts
         run: python -m src.run_pipeline
       - name: Operations smoke
