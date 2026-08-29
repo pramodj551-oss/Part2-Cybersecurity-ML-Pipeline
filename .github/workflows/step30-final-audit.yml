@@ -32,10 +32,18 @@ jobs:
 
       - name: Reproducibility contract
         run: |
-          grep -Eq 'RANDOM_STATE[[:space:]]*=[[:space:]]*42' src/config.py
-          grep -Eq 'CV_FOLDS[[:space:]]*=[[:space:]]*5' src/config.py
-          grep -Eq 'RANDOM_STATE[[:space:]]*[=:][[:space:]]*42' README.md
-          grep -Eq 'CV_FOLDS[[:space:]]*[=:][[:space:]]*5' README.md
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          config = Path("src/config.py").read_text(encoding="utf-8")
+          readme = Path("README.md").read_text(encoding="utf-8")
+          assert re.search(r"RANDOM_STATE\s*=\s*42", config), "RANDOM_STATE contract missing"
+          assert re.search(r"CV_FOLDS\s*=\s*5", config), "CV_FOLDS contract missing"
+          assert re.search(r"RANDOM_STATE\s*[=:]\s*42", readme), "README RANDOM_STATE contract missing"
+          assert re.search(r"CV_FOLDS\s*[=:]\s*5", readme), "README CV_FOLDS contract missing"
+          print("Reproducibility contract PASS")
+          PY
 
       - name: Security configuration audit
         run: |
