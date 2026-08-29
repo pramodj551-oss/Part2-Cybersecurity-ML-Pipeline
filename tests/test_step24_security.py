@@ -38,6 +38,7 @@ def test_security_headers():
 
 def test_rate_limit(monkeypatch):
     import src.inference_service as service
+    monkeypatch.setattr(service, 'API_KEY', TEST_HEADERS['X-API-Key'])
     monkeypatch.setattr(service, 'RATE_LIMIT', 1)
     service._requests.clear()
     try:
