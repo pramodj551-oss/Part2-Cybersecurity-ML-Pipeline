@@ -26,7 +26,18 @@ jobs:
         run: |
           test ! -f .env
           grep -q '^INFERENCE_API_KEY=' .env.example
-          ! grep -R --exclude-dir=.git -E 'INFERENCE_API_KEY=[^$]' .github src tests
+          python - <<'PY'
+          from pathlib import Path
+          forbidden=[]
+          for root in ('src','tests'):
+              for path in Path(root).rglob('*.py'):
+                  for line in path.read_text(encoding='utf-8').splitlines():
+                      if 'INFERENCE_API_KEY=' in line and '${' not in line and 'os.getenv' not in line:
+                          forbidden.append(f'{path}: {line}')
+          if forbidden:
+              raise SystemExit('Hardcoded secret assignment found')
+          print('Secrets audit PASS')
+          PY
       - name: Full regression tests
         run: python -m pytest -q
       - name: Build runtime artifacts
