@@ -1,4 +1,4 @@
-"""STEP 22: automated retraining decision and safe model promotion."""
+"""STEP 22/35: automated retraining decision and safe model promotion."""
 from __future__ import annotations
 
 import json
@@ -69,25 +69,75 @@ def compare_models(current_metadata: dict, candidate_name: str, candidate_report
     }
 
 
-def promote_candidate(model_path: Path, metadata: dict, selected_features: list[str]) -> None:
-    """Atomically replace the promoted model and metadata after policy approval."""
+def _replace_with_backup(source: Path, destination: Path, backup: Path) -> None:
+    """Stage a replacement and retain the previous artifact for transaction rollback."""
+    if not source.exists():
+        raise FileNotFoundError(f"Candidate artifact not found: {source}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        shutil.copy2(destination, backup)
+    shutil.copy2(source, destination.with_suffix(destination.suffix + ".candidate"))
+
+
+def promote_candidate(
+    model_path: Path,
+    metadata: dict,
+    selected_features: list[str],
+    preprocessor_path: Path,
+) -> None:
+    """Promote model + matching preprocessor as one lifecycle transaction.
+
+    Both runtime artifacts are staged before either production path is changed.
+    If any promotion step fails, the previous model/preprocessor pair is restored.
+    """
     if not model_path.exists():
         raise FileNotFoundError(f"Candidate model not found: {model_path}")
-    BEST_MODEL_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temp_model = BEST_MODEL_FILE.with_suffix(".candidate.pkl")
-    shutil.copy2(model_path, temp_model)
-    temp_model.replace(BEST_MODEL_FILE)
+    if not preprocessor_path.exists():
+        raise FileNotFoundError(f"Candidate preprocessor not found: {preprocessor_path}")
 
-    promoted = dict(metadata)
-    promoted.update(
-        {
-            "lifecycle_status": "promoted",
-            "promotion_timestamp": datetime.now(timezone.utc).isoformat(),
-            "selected_feature_names": list(selected_features),
-            "random_state": RANDOM_STATE,
-        }
-    )
-    MODEL_METADATA_FILE.write_text(json.dumps(promoted, indent=2), encoding="utf-8")
+    BEST_MODEL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    model_stage = BEST_MODEL_FILE.with_suffix(BEST_MODEL_FILE.suffix + ".candidate")
+    preprocessor_stage = PREPROCESSOR_FILE.with_suffix(PREPROCESSOR_FILE.suffix + ".candidate")
+    model_backup = BEST_MODEL_FILE.with_suffix(BEST_MODEL_FILE.suffix + ".backup")
+    preprocessor_backup = PREPROCESSOR_FILE.with_suffix(PREPROCESSOR_FILE.suffix + ".backup")
+
+    try:
+        shutil.copy2(model_path, model_stage)
+        shutil.copy2(preprocessor_path, preprocessor_stage)
+        if not model_stage.exists() or not preprocessor_stage.exists():
+            raise RuntimeError("Failed to stage the complete runtime artifact pair.")
+
+        if BEST_MODEL_FILE.exists():
+            shutil.copy2(BEST_MODEL_FILE, model_backup)
+        if PREPROCESSOR_FILE.exists():
+            shutil.copy2(PREPROCESSOR_FILE, preprocessor_backup)
+
+        model_stage.replace(BEST_MODEL_FILE)
+        preprocessor_stage.replace(PREPROCESSOR_FILE)
+
+        if not BEST_MODEL_FILE.exists() or not PREPROCESSOR_FILE.exists():
+            raise RuntimeError("Promoted runtime artifact pair is incomplete.")
+
+        promoted = dict(metadata)
+        promoted.update(
+            {
+                "lifecycle_status": "promoted",
+                "promotion_timestamp": datetime.now(timezone.utc).isoformat(),
+                "selected_feature_names": list(selected_features),
+                "random_state": RANDOM_STATE,
+                "artifact_consistency": "model_and_preprocessor_promoted_together",
+            }
+        )
+        MODEL_METADATA_FILE.write_text(json.dumps(promoted, indent=2), encoding="utf-8")
+    except Exception:
+        if model_backup.exists():
+            model_backup.replace(BEST_MODEL_FILE)
+        if preprocessor_backup.exists():
+            preprocessor_backup.replace(PREPROCESSOR_FILE)
+        raise
+    finally:
+        for path in (model_stage, preprocessor_stage, model_backup, preprocessor_backup):
+            path.unlink(missing_ok=True)
 
 
 def write_registry(current_metadata: dict, decision: dict, status: str) -> dict:
