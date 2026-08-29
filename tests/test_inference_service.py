@@ -5,7 +5,7 @@ from src.inference_service import app, runtime
 from src.config import BEST_MODEL_FILE, PREPROCESSOR_FILE, MODEL_METADATA_FILE
 
 client = TestClient(app)
-TEST_HEADERS = {"X-API-Key": "ci-step30-smoke-key"}
+TEST_HEADERS = {"X-API-Key": __import__("os").getenv("INFERENCE_API_KEY", "ci-step30-smoke-key")}
 
 def test_health():
     response = client.get("/health")
