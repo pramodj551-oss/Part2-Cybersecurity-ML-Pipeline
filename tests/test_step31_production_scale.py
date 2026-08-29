@@ -10,7 +10,7 @@ client = TestClient(service.app)
 def test_prometheus_metrics_are_exposed():
     response = client.get("/health")
     assert response.status_code == 200
-    response = client.get("/metrics")
+    response = client.get("/metrics", headers={"X-API-Key": os.getenv("INFERENCE_API_KEY")} )
     assert response.status_code == 200
     assert "text/plain" in response.headers["content-type"]
     assert "inference_http_requests_total" in response.text
