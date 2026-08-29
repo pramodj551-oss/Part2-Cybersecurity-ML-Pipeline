@@ -1,0 +1,42 @@
+name: STEP 34 Production Intelligence
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production-intelligence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Full regression
+        run: python -m pytest -q
+      - name: Security validation
+        run: |
+          test ! -f .env
+          python - <<'PY'
+          from pathlib import Path
+          bad=("BEGIN PRIVATE KEY","password=","secret=","api_key=\"")
+          hits=[]
+          for root in ("src","tests"):
+            for p in Path(root).rglob("*.py"):
+              t=p.read_text(encoding="utf-8").lower()
+              if any(x.lower() in t for x in bad): hits.append(str(p))
+          assert not hits, hits
+          print("Security PASS")
+          PY
+      - name: Intelligence validation
+        run: |
+          python - <<'PY'
+          from src.production_intelligence import *
+          assert automated_action(HealthSnapshot(.999,100,.001,.01))["state"]=="healthy"
+          assert automated_action(HealthSnapshot(.99,600,.02,.3))["state"]=="degraded"
+          assert automated_action(HealthSnapshot(.97,1200,.08))["action"]=="rollback_and_page"
+          print("Intelligence PASS")
+          PY
+      - name: Docker validation
+        run: docker build -t cybersecurity-ml-pipeline:step34 .
