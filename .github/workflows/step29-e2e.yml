@@ -1,0 +1,43 @@
+name: STEP 29 End-to-End MLOps Validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  e2e-mlops:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Run full regression suite
+        run: pytest -q
+      - name: Run end-to-end pipeline
+        run: python run_pipeline.py
+      - name: Validate runtime outputs
+        run: |
+          test -d outputs
+          test -d models
+      - name: Build production image
+        run: docker build --pull -t cybersecurity-ml-pipeline:e2e .
+      - name: Docker smoke test
+        run: |
+          docker run -d --name e2e-api -p 8000:8000 cybersecurity-ml-pipeline:e2e
+          for i in {1..30}; do curl --fail --silent http://127.0.0.1:8000/health >/dev/null && break; sleep 2; done
+          curl --fail --silent http://127.0.0.1:8000/health
+      - name: Cleanup
+        if: always()
+        run: docker rm -f e2e-api || true
