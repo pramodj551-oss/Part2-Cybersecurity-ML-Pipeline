@@ -16,7 +16,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -83,21 +82,9 @@ jobs:
           test -f outputs/retraining_decision.json
           test -f outputs/model_lifecycle_comparison.csv
           test -f outputs/model_registry.json
-          test -s outputs/feature_importance.csv
-          test -s outputs/evaluation_report.json
-          test -s outputs/ablation_results.csv
-          test -s outputs/hyperparameter_optimization.csv
-          test -s outputs/explainability_feature_importance.csv
-          test -s outputs/local_prediction_explanation.csv
-          test -s outputs/drift_results.csv
-          test -s outputs/prediction_drift.json
-          test -s outputs/drift_report.json
-          test -s outputs/retraining_decision.json
-          test -s outputs/model_lifecycle_comparison.csv
-          test -s outputs/model_registry.json
       - name: Upload dashboard-compatible ML artifacts
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: part2-runtime-artifacts
           if-no-files-found: error
@@ -131,7 +118,7 @@ jobs:
             outputs/model_registry.json
       - name: Upload ML audit artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ml-audit-artifacts
           if-no-files-found: error
