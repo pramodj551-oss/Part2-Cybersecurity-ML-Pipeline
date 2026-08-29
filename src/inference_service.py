@@ -218,7 +218,7 @@ def ready(request: Request, x_api_key: str | None = Header(default=None)):
 @app.get("/metrics", include_in_schema=False)
 def metrics(request: Request, x_api_key: str | None = Header(default=None)):
     protected(request, x_api_key)
-    if request.headers.get("accept", "").startswith("application/json") or not API_KEY:
+    if request.query_params.get("format") == "json":
         for key in ("requests_total", "errors_total", "predictions_total"):
             _metric_value(key)
         avg_ms = (sum(LATENCIES) / len(LATENCIES) * 1000) if LATENCIES else 0.0
