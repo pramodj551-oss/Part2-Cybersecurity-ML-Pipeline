@@ -22,7 +22,6 @@ from src.config import (
     CATEGORICAL_FEATURES,
     NUMERICAL_FEATURES,
 )
-from src.feature_selection import FeatureSelector
 from src.model_lifecycle import (
     RETRAINING_DECISION_FILE,
     compare_models,
@@ -34,6 +33,7 @@ from src.model_lifecycle import (
 )
 from src.model_training import ModelTrainer
 from src.preprocessing import Preprocessor
+from src.feature_selection import FeatureSelector
 from src.utils import save_model
 
 CANDIDATE_MODEL_FILE = MODEL_DIR / "candidate_model.pkl"
@@ -54,8 +54,21 @@ def main() -> int:
     }
 
     if not required:
-        decision["action"] = "no_retraining"
-        decision["promotion"] = "not_applicable"
+        decision.update({"action": "no_retraining", "promotion": "not_applicable"})
+        save_comparison(
+            {
+                "current_model": current_metadata.get("model_name"),
+                "current_cv_mean": current_metadata.get("cv_mean"),
+                "candidate_model": None,
+                "candidate_cv_mean": None,
+                "cv_improvement": 0.0,
+                "candidate_test_r2": None,
+                "candidate_test_rmse": None,
+                "candidate_test_mae": None,
+                "promotion_eligible": False,
+                "status": "no_retraining",
+            }
+        )
         RETRAINING_DECISION_FILE.write_text(json.dumps(decision, indent=2), encoding="utf-8")
         write_registry(current_metadata, decision, "active")
         print("STEP 22: no retraining required; current model remains active.")
@@ -90,6 +103,7 @@ def main() -> int:
 
     save_model(trainer.best_model, CANDIDATE_MODEL_FILE)
     comparison = compare_models(current_metadata, candidate_name, candidate_report)
+    comparison["status"] = "candidate_evaluated"
     save_comparison(comparison)
 
     decision.update(
