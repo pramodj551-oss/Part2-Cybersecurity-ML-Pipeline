@@ -37,6 +37,7 @@ from src.feature_selection import FeatureSelector
 from src.utils import save_model
 
 CANDIDATE_MODEL_FILE = MODEL_DIR / "candidate_model.pkl"
+CANDIDATE_PREPROCESSOR_FILE = MODEL_DIR / "candidate_preprocessor.pkl"
 
 
 def main() -> int:
@@ -102,6 +103,7 @@ def main() -> int:
     candidate_report = trainer.model_comparison_report(results)
 
     save_model(trainer.best_model, CANDIDATE_MODEL_FILE)
+    save_model(fitted_preprocessor, CANDIDATE_PREPROCESSOR_FILE)
     comparison = compare_models(current_metadata, candidate_name, candidate_report)
     comparison["status"] = "candidate_evaluated"
     save_comparison(comparison)
@@ -134,7 +136,12 @@ def main() -> int:
             ],
             "target_column": TARGET_COLUMN,
         }
-        promote_candidate(CANDIDATE_MODEL_FILE, candidate_metadata, selected_features)
+        promote_candidate(
+            CANDIDATE_MODEL_FILE,
+            candidate_metadata,
+            selected_features,
+            CANDIDATE_PREPROCESSOR_FILE,
+        )
         registry_status = "promoted"
     else:
         registry_status = "active"
