@@ -16,3 +16,8 @@ def test_step29_ci_covers_pipeline_lifecycle():
     assert 'run_pipeline.py' in text
     assert 'pytest' in text
     assert 'docker build' in text
+
+
+def test_step29_reproducibility_contract_is_documented():
+    assert 'RANDOM_STATE=42' in Path('README.md').read_text(encoding='utf-8')
+    assert 'CV_FOLDS=5' in Path('README.md').read_text(encoding='utf-8')
