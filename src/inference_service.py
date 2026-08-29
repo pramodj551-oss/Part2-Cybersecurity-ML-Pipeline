@@ -44,6 +44,9 @@ RATE_LIMIT_PREFIX = os.getenv("RATE_LIMIT_PREFIX", "cybersecurity_ml:rate_limit"
 RATE_LIMIT_MODE = os.getenv("RATE_LIMIT_MODE", "auto").lower()
 _redis_client = None
 _local_requests: dict[str, list[float]] = {}
+_requests = _local_requests
+METRICS = {"requests_total": 0, "errors_total": 0, "predictions_total": 0}
+LATENCIES: list[float] = []
 
 REQUEST_COUNT = Counter(
     "inference_http_requests_total", "HTTP requests processed", ["method", "path", "status"]
@@ -184,7 +187,11 @@ async def observe(request, call_next):
         raise
     elapsed = time.perf_counter() - start
     REQUEST_COUNT.labels(request.method, request.url.path, str(response.status_code)).inc()
+    METRICS["requests_total"] += 1
+    if response.status_code >= 400:
+        METRICS["errors_total"] += 1
     REQUEST_LATENCY.labels(request.method, request.url.path).observe(elapsed)
+    LATENCIES.append(elapsed)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Cache-Control"] = "no-store"
@@ -206,7 +213,8 @@ def ready(request: Request, x_api_key: str | None = Header(default=None)):
 
 
 @app.get("/metrics", include_in_schema=False)
-def metrics():
+def metrics(request: Request, x_api_key: str | None = Header(default=None)):
+    protected(request, x_api_key)
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -229,6 +237,7 @@ def predict(request: Request, payload: PredictionRequest, x_api_key: str | None 
     try:
         score = runtime.predict(payload.model_dump())
         PREDICTION_COUNT.labels(outcome="success").inc()
+        METRICS["predictions_total"] += 1
         audit("prediction", request, model=runtime.metadata.get("model_name"))
         return {"prediction": score, "model": runtime.metadata.get("model_name")}
     except FileNotFoundError as exc:
