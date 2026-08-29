@@ -1,0 +1,44 @@
+name: STEP 27 Production CD Validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  docker-cd-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Build production image
+        run: docker build --pull -t cybersecurity-ml-pipeline:${{ github.sha }} .
+      - name: Validate image metadata
+        run: docker image inspect cybersecurity-ml-pipeline:${{ github.sha }} >/dev/null
+      - name: Start production container
+        run: docker run -d --name ml-api -p 8000:8000 cybersecurity-ml-pipeline:${{ github.sha }}
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          docker logs ml-api
+          exit 1
+      - name: Smoke test readiness and metrics
+        run: |
+          curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent http://127.0.0.1:8000/metrics
+      - name: Verify non-root container user
+        run: test "$(docker exec ml-api id -u)" != "0"
+      - name: Cleanup
+        if: always()
+        run: docker rm -f ml-api || true
