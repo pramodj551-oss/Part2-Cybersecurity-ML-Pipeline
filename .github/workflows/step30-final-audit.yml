@@ -32,8 +32,16 @@ jobs:
 
       - name: Reproducibility contract
         run: |
+          grep -q 'RANDOM_STATE=42' src/config.py
+          grep -q 'CV_FOLDS=5' src/config.py
           grep -q 'RANDOM_STATE=42' README.md
           grep -q 'CV_FOLDS=5' README.md
+
+      - name: Prediction-time feature contract audit
+        run: |
+          grep -q 'NUMERICAL_FEATURES' src/config.py
+          grep -q 'CATEGORICAL_FEATURES' src/config.py
+          grep -q 'downtime_hours, response_team_size, regulatory_fine_usd, resolved_within_7_days' src/config.py
 
       - name: Security configuration audit
         run: |
@@ -73,12 +81,26 @@ jobs:
 
       - name: Rollback validation
         run: |
+          set -euo pipefail
           docker tag cybersecurity-ml-pipeline:audit cybersecurity-ml-pipeline:rollback-audit
           docker image inspect cybersecurity-ml-pipeline:rollback-audit >/dev/null
+          docker run -d --name rollback-container -p 8001:8000 \
+            -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
+            cybersecurity-ml-pipeline:rollback-audit
+          trap 'docker rm -f rollback-container >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8001/health >/dev/null
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8001/ready >/dev/null
 
       - name: Container hardening validation
         run: test "$(docker exec audit-container id -u)" != "0"
 
       - name: Cleanup
         if: always()
-        run: docker rm -f audit-container || true
+        run: |
+          docker rm -f audit-container rollback-container >/dev/null 2>&1 || true
