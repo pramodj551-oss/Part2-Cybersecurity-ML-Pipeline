@@ -32,8 +32,10 @@ jobs:
 
       - name: Reproducibility contract
         run: |
-          grep -q 'RANDOM_STATE=42' README.md
-          grep -q 'CV_FOLDS=5' README.md
+          grep -Eq 'RANDOM_STATE[[:space:]]*=[[:space:]]*42' src/config.py
+          grep -Eq 'CV_FOLDS[[:space:]]*=[[:space:]]*5' src/config.py
+          grep -Eq 'RANDOM_STATE[[:space:]]*[=:][[:space:]]*42' README.md
+          grep -Eq 'CV_FOLDS[[:space:]]*[=:][[:space:]]*5' README.md
 
       - name: Security configuration audit
         run: |
