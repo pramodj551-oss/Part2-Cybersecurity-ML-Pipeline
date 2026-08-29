@@ -19,11 +19,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+      - name: Install pipeline dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+      - name: Generate runtime model artifacts
+        run: python run_pipeline.py
       - name: Validate release configuration
         run: |
           test -f Dockerfile
           test -f .dockerignore
           test -f .github/workflows/step27-cd.yml
+          test -f models/best_model.pkl
+          test -f models/preprocessor.pkl
+          test -f models/model_metadata.json
       - name: Build versioned release image
         run: |
           VERSION="v0.28.${GITHUB_RUN_NUMBER}"
