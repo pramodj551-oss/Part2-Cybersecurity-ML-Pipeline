@@ -187,9 +187,9 @@ async def observe(request, call_next):
         raise
     elapsed = time.perf_counter() - start
     REQUEST_COUNT.labels(request.method, request.url.path, str(response.status_code)).inc()
-    METRICS["requests_total"] += 1
+    METRICS["requests_total"] = METRICS.get("requests_total", 0) + 1
     if response.status_code >= 400:
-        METRICS["errors_total"] += 1
+        METRICS["errors_total"] = METRICS.get("errors_total", 0) + 1
     REQUEST_LATENCY.labels(request.method, request.url.path).observe(elapsed)
     LATENCIES.append(elapsed)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -215,6 +215,9 @@ def ready(request: Request, x_api_key: str | None = Header(default=None)):
 @app.get("/metrics", include_in_schema=False)
 def metrics(request: Request, x_api_key: str | None = Header(default=None)):
     protected(request, x_api_key)
+    if "application/json" in request.headers.get("accept", ""):
+        avg_ms = (sum(LATENCIES) / len(LATENCIES) * 1000) if LATENCIES else 0.0
+        return {"metrics": {"inference_requests_total": METRICS.get("requests_total", 0), "inference_errors_total": METRICS.get("errors_total", 0), "inference_predictions_total": METRICS.get("predictions_total", 0), "inference_latency_ms_avg": avg_ms}}
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -237,7 +240,7 @@ def predict(request: Request, payload: PredictionRequest, x_api_key: str | None 
     try:
         score = runtime.predict(payload.model_dump())
         PREDICTION_COUNT.labels(outcome="success").inc()
-        METRICS["predictions_total"] += 1
+        METRICS["predictions_total"] = METRICS.get("predictions_total", 0) + 1
         audit("prediction", request, model=runtime.metadata.get("model_name"))
         return {"prediction": score, "model": runtime.metadata.get("model_name")}
     except FileNotFoundError as exc:
