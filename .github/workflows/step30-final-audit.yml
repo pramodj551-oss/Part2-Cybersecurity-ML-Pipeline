@@ -32,8 +32,31 @@ jobs:
 
       - name: Reproducibility contract
         run: |
-          grep -q 'RANDOM_STATE=42' README.md
-          grep -q 'CV_FOLDS=5' README.md
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          config = Path("src/config.py").read_text(encoding="utf-8")
+          readme = Path("README.md").read_text(encoding="utf-8")
+
+          required = (
+              (config, r"RANDOM_STATE\s*=\s*42", "src/config.py RANDOM_STATE"),
+              (config, r"CV_FOLDS\s*=\s*5", "src/config.py CV_FOLDS"),
+              (readme, r"RANDOM_STATE\s*(?:=|:)\s*42", "README RANDOM_STATE"),
+              (readme, r"CV_FOLDS\s*(?:=|:)\s*5", "README CV_FOLDS"),
+          )
+          for text, pattern, label in required:
+              if not re.search(pattern, text):
+                  raise SystemExit(f"Missing reproducibility contract: {label}")
+
+          print("Reproducibility contract PASS")
+          PY
+
+      - name: Prediction-time feature contract audit
+        run: |
+          grep -q 'NUMERICAL_FEATURES' src/config.py
+          grep -q 'CATEGORICAL_FEATURES' src/config.py
+          grep -q 'downtime_hours, response_team_size, regulatory_fine_usd, resolved_within_7_days' src/config.py
 
       - name: Security configuration audit
         run: |
@@ -73,12 +96,26 @@ jobs:
 
       - name: Rollback validation
         run: |
+          set -euo pipefail
           docker tag cybersecurity-ml-pipeline:audit cybersecurity-ml-pipeline:rollback-audit
           docker image inspect cybersecurity-ml-pipeline:rollback-audit >/dev/null
+          docker run -d --name rollback-container -p 8001:8000 \
+            -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
+            cybersecurity-ml-pipeline:rollback-audit
+          trap 'docker rm -f rollback-container >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8001/health >/dev/null
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8001/ready >/dev/null
 
       - name: Container hardening validation
         run: test "$(docker exec audit-container id -u)" != "0"
 
       - name: Cleanup
         if: always()
-        run: docker rm -f audit-container || true
+        run: |
+          docker rm -f audit-container rollback-container >/dev/null 2>&1 || true

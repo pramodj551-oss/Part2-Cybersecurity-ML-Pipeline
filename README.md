@@ -51,6 +51,12 @@ Model + Preprocessor + Feature Contract
 Prediction
 ```
 
+## Prediction-time feature contract
+
+The production prediction contract uses only features declared in `src/config.py` under `NUMERICAL_FEATURES` and `CATEGORICAL_FEATURES`. Post-incident response fields such as `downtime_hours`, `response_team_size`, `regulatory_fine_usd`, and `resolved_within_7_days` are explicitly excluded from prediction because they are not guaranteed to be available at prediction time.
+
+The STEP 30 audit workflow verifies that this exclusion remains present in the source configuration, providing an automated guard against accidental leakage into the inference contract. Business owners should still confirm that every production input is operationally available at the point of prediction.
+
 ## Generated Artifacts
 
 The pipeline generates model, metadata, feature-importance, comparison, evaluation, prediction, and logging outputs under the configured `models/` and `outputs/` directories. Runtime model/output artifacts are intentionally ignored by Git.
@@ -105,4 +111,6 @@ venv\Scripts\activate
 
 ## Status
 
-**Production-ready regression pipeline — subject to validation of business-time feature availability for `severity_score`.**
+**Production-ready regression pipeline with automated security, Docker, CI/CD, monitoring, reproducibility, and rollback-readiness validation.**
+
+Production deployment should still be preceded by environment-specific operational approval and confirmation that all prediction inputs are available at inference time.
