@@ -1,0 +1,39 @@
+name: STEP 32 Production Operations
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  INFERENCE_API_KEY: ci-step32-operations-key
+jobs:
+  production-operations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.11"}
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt
+      - name: Full regression
+        run: python -m pytest -q
+      - name: Security audit
+        run: |
+          test ! -f .env
+          python - <<'PY'
+          from pathlib import Path
+          forbidden = 'api_key=' + chr(34)
+          hits = [
+              str(path)
+              for path in Path("src").rglob("*.py")
+              if forbidden in path.read_text(encoding="utf-8").lower()
+          ]
+          assert not hits, "Potential hardcoded API key: " + ", ".join(hits)
+          print("Security PASS")
+          PY
+      - name: Build artifacts
+        run: python -m src.run_pipeline
+      - name: Operations smoke
+        run: |
+          python -c "from src.production_operations import *; r=evaluate_slo({'availability':.999,'p95_latency_ms':120,'error_rate':.001}); assert r['healthy']; assert validate_canary({'error_rate':.01,'p95_latency_ms':100},{'error_rate':.01,'p95_latency_ms':105})['promote']; print('Operations PASS')"
