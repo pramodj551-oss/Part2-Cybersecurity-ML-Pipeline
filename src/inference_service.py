@@ -45,7 +45,15 @@ RATE_LIMIT_MODE = os.getenv("RATE_LIMIT_MODE", "auto").lower()
 _redis_client = None
 _local_requests: dict[str, list[float]] = {}
 _requests = _local_requests
-METRICS = {"requests_total": 0, "errors_total": 0, "predictions_total": 0}
+class MetricsDict(dict):
+    _defaults = {"requests_total": 0, "errors_total": 0, "predictions_total": 0}
+    def __getitem__(self, key):
+        return super().get(key, 0)
+    def clear(self):
+        super().clear()
+        super().update(self._defaults)
+
+METRICS = MetricsDict(MetricsDict._defaults)
 
 def _metric_value(name: str) -> int:
     return METRICS.setdefault(name, 0)
