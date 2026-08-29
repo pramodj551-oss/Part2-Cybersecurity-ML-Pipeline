@@ -57,6 +57,8 @@ jobs:
           PY
           jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --output-dir notebooks --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
           test -s notebooks/EDA_executed.ipynb
+      - name: Run and audit 29 SQL analytics queries
+        run: python scripts/run_sql_queries.py
       - name: Verify required runtime artifacts
         run: |
           test -f models/best_model.pkl
@@ -82,6 +84,8 @@ jobs:
           test -f outputs/retraining_decision.json
           test -f outputs/model_lifecycle_comparison.csv
           test -f outputs/model_registry.json
+          test -f outputs/sql_query_validation.csv
+          test -f outputs/sql_query_validation.json
       - name: Upload dashboard-compatible ML artifacts
         if: success()
         uses: actions/upload-artifact@v6
@@ -116,6 +120,8 @@ jobs:
             outputs/retraining_decision.json
             outputs/model_lifecycle_comparison.csv
             outputs/model_registry.json
+            outputs/sql_query_validation.csv
+            outputs/sql_query_validation.json
       - name: Upload ML audit artifacts
         if: always()
         uses: actions/upload-artifact@v6
