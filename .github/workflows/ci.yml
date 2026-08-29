@@ -20,43 +20,31 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
-
       - name: Install dependencies
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
-
       - name: Compile Python modules
         run: python -m compileall -q src scripts
-
       - name: Run tests
         run: python -m pytest -q
-
       - name: Run complete ML pipeline
         run: python -m src.run_pipeline
-
       - name: Run STEP 17 Feature Engineering + Ablation Study
         run: python -m src.feature_engineering
-
       - name: Run STEP 18 Hyperparameter Optimization
         run: python -m src.hyperparameter_optimization
-
       - name: Run STEP 19 Model Calibration + Threshold Optimization
         run: python scripts/run_step19.py
-
       - name: Run STEP 20 Model Explainability + Feature Importance
         run: python scripts/run_step20.py
-
       - name: Run STEP 21 Model Monitoring + Drift Detection
         run: python scripts/run_step21.py
-
       - name: Run STEP 22 Automated Retraining + Model Lifecycle
         run: python scripts/run_step22.py
-
       - name: Validate and execute EDA notebook
         run: |
           python - <<'PY'
@@ -70,7 +58,6 @@ jobs:
           PY
           jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
           test -s notebooks/EDA_executed.ipynb
-
       - name: Verify required runtime artifacts
         run: |
           test -f models/best_model.pkl
@@ -108,7 +95,6 @@ jobs:
           test -s outputs/retraining_decision.json
           test -s outputs/model_lifecycle_comparison.csv
           test -s outputs/model_registry.json
-
       - name: Upload dashboard-compatible ML artifacts
         if: success()
         uses: actions/upload-artifact@v4
@@ -143,7 +129,6 @@ jobs:
             outputs/retraining_decision.json
             outputs/model_lifecycle_comparison.csv
             outputs/model_registry.json
-
       - name: Upload ML audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
