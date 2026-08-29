@@ -32,10 +32,25 @@ jobs:
 
       - name: Reproducibility contract
         run: |
-          grep -q 'RANDOM_STATE=42' src/config.py
-          grep -q 'CV_FOLDS=5' src/config.py
-          grep -q 'RANDOM_STATE=42' README.md
-          grep -q 'CV_FOLDS=5' README.md
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          config = Path("src/config.py").read_text(encoding="utf-8")
+          readme = Path("README.md").read_text(encoding="utf-8")
+
+          required = (
+              (config, r"RANDOM_STATE\s*=\s*42", "src/config.py RANDOM_STATE"),
+              (config, r"CV_FOLDS\s*=\s*5", "src/config.py CV_FOLDS"),
+              (readme, r"RANDOM_STATE\s*(?:=|:)\s*42", "README RANDOM_STATE"),
+              (readme, r"CV_FOLDS\s*(?:=|:)\s*5", "README CV_FOLDS"),
+          )
+          for text, pattern, label in required:
+              if not re.search(pattern, text):
+                  raise SystemExit(f"Missing reproducibility contract: {label}")
+
+          print("Reproducibility contract PASS")
+          PY
 
       - name: Prediction-time feature contract audit
         run: |
