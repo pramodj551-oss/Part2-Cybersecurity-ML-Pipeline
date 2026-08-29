@@ -55,7 +55,7 @@ jobs:
           assert isinstance(data.get("cells"), list) and data["cells"]
           print(f"EDA notebook JSON validation PASS: {len(data['cells'])} cells")
           PY
-          jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
+          jupyter nbconvert --to notebook --execute notebooks/EDA.ipynb --output EDA_executed.ipynb --output-dir notebooks --ExecutePreprocessor.timeout=600 --ExecutePreprocessor.kernel_name=python3
           test -s notebooks/EDA_executed.ipynb
       - name: Verify required runtime artifacts
         run: |
