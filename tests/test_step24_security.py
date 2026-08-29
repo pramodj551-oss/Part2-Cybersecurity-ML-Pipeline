@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from src.inference_service import app
 
 client = TestClient(app)
+TEST_HEADERS = {'X-API-Key': 'ci-step30-smoke-key'}
 
 
 def _valid_payload():
@@ -37,11 +38,12 @@ def test_security_headers():
 
 def test_rate_limit(monkeypatch):
     import src.inference_service as service
+    monkeypatch.setattr(service, 'API_KEY', TEST_HEADERS['X-API-Key'])
     monkeypatch.setattr(service, 'RATE_LIMIT', 1)
     service._requests.clear()
     try:
-        first = client.post('/predict', json=_valid_payload())
-        second = client.post('/predict', json=_valid_payload())
+        first = client.post('/predict', json=_valid_payload(), headers=TEST_HEADERS)
+        second = client.post('/predict', json=_valid_payload(), headers=TEST_HEADERS)
         assert first.status_code != 429
         assert second.status_code == 429
     finally:

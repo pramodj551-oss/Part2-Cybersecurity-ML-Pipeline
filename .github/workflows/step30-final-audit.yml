@@ -1,0 +1,84 @@
+name: STEP 30 Final Production Audit
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  INFERENCE_API_KEY: ci-step30-smoke-key
+
+jobs:
+  final-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Full regression tests
+        run: python -m pytest -q
+
+      - name: Reproducibility contract
+        run: |
+          grep -q 'RANDOM_STATE=42' README.md
+          grep -q 'CV_FOLDS=5' README.md
+
+      - name: Security configuration audit
+        run: |
+          grep -R "permissions:" .github/workflows >/dev/null
+          grep -R "contents: read" .github/workflows >/dev/null
+          test ! -f .env
+
+      - name: Generate runtime artifacts
+        run: python run_pipeline.py
+
+      - name: Validate model artifacts
+        run: |
+          test -s models/best_model.pkl
+          test -s models/preprocessor.pkl
+          test -s models/model_metadata.json
+
+      - name: Docker production audit
+        run: |
+          docker build --pull -t cybersecurity-ml-pipeline:audit .
+          docker image inspect cybersecurity-ml-pipeline:audit >/dev/null
+
+      - name: Start audit container
+        run: |
+          docker run -d --name audit-container -p 8000:8000 \
+            -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
+            cybersecurity-ml-pipeline:audit
+
+      - name: Health and readiness smoke tests
+        run: |
+          for i in {1..30}; do
+            curl --fail --silent http://127.0.0.1:8000/health >/dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
+
+      - name: Rollback validation
+        run: |
+          docker tag cybersecurity-ml-pipeline:audit cybersecurity-ml-pipeline:rollback-audit
+          docker image inspect cybersecurity-ml-pipeline:rollback-audit >/dev/null
+
+      - name: Container hardening validation
+        run: test "$(docker exec audit-container id -u)" != "0"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f audit-container || true
