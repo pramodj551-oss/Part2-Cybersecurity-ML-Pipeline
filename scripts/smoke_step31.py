@@ -19,6 +19,6 @@ else:
     raise SystemExit("health check failed")
 
 assert httpx.get(f"{base_url}/ready", headers=headers, timeout=5).status_code == 200
-metrics = httpx.get(f"{base_url}/metrics", timeout=5)
+metrics = httpx.get(f"{base_url}/metrics", headers=headers, timeout=5)
 assert metrics.status_code == 200 and "inference_http_requests_total" in metrics.text
 print("STEP 31 deployment smoke PASS")
