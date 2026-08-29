@@ -11,6 +11,7 @@ permissions:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   IMAGE_NAME: cybersecurity-ml-pipeline
+  SMOKE_API_KEY: ci-step28-smoke-key
 
 jobs:
   release-validation:
@@ -29,7 +30,10 @@ jobs:
           docker build --pull -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:sha-${GITHUB_SHA::12}" .
           docker image inspect "${IMAGE_NAME}:${VERSION}" >/dev/null
       - name: Start release candidate
-        run: docker run -d --name release-candidate -p 8000:8000 "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}"
+        run: |
+          docker run -d --name release-candidate -p 8000:8000 \
+            -e INFERENCE_API_KEY="${SMOKE_API_KEY}" \
+            "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}"
       - name: Deployment smoke tests
         run: |
           for i in {1..30}; do
@@ -37,8 +41,8 @@ jobs:
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8000/health
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY:-}" http://127.0.0.1:8000/ready
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY:-}" http://127.0.0.1:8000/metrics >/dev/null
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8000/ready
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
       - name: Rollback validation
         run: |
           docker tag "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}" "${IMAGE_NAME}:rollback-candidate"
