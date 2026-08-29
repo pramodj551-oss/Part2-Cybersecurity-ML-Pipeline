@@ -42,20 +42,48 @@ def test_prediction_monitoring_schema():
     reference = pd.Series(np.linspace(0, 10, 100))
     current = pd.Series(np.linspace(0, 10, 100))
     result = monitor_predictions(reference, current)
-    assert result["drift_detected"] is False
+    assert not result["drift_detected"]
     assert result["psi"] == pytest.approx(0.0)
 
 
 def test_invalid_threshold_rejected():
     with pytest.raises(ValueError):
-        monitor_features(pd.DataFrame({"x": [1, 2]}), pd.DataFrame({"x": [1, 2]}), ["x"], [], threshold=0)
+        monitor_features(
+            pd.DataFrame({"x": [1, 2]}),
+            pd.DataFrame({"x": [1, 2]}),
+            ["x"],
+            [],
+            threshold=0,
+        )
 
 
 def test_outputs_are_json_serializable(tmp_path, monkeypatch):
     monkeypatch.setattr("src.model_monitoring.OUTPUT_DIR", tmp_path)
-    results = pd.DataFrame([{"feature": "x", "feature_type": "numeric", "drift_score": 0.0, "threshold": 0.2, "drift_detected": False}])
-    prediction = {"psi": 0.0, "threshold": 0.2, "drift_detected": False, "reference_mean": 1.0, "current_mean": 1.0}
-    report = {"step": 21, "reference_rows": 2, "current_rows": 2, "features_monitored": 1, "features_with_drift": 0, "prediction_drift": prediction, "overall_drift_detected": False}
+    results = pd.DataFrame([
+        {
+            "feature": "x",
+            "feature_type": "numeric",
+            "drift_score": 0.0,
+            "threshold": 0.2,
+            "drift_detected": False,
+        }
+    ])
+    prediction = {
+        "psi": 0.0,
+        "threshold": 0.2,
+        "drift_detected": False,
+        "reference_mean": 1.0,
+        "current_mean": 1.0,
+    }
+    report = {
+        "step": 21,
+        "reference_rows": 2,
+        "current_rows": 2,
+        "features_monitored": 1,
+        "features_with_drift": 0,
+        "prediction_drift": prediction,
+        "overall_drift_detected": False,
+    }
     save_monitoring_outputs(results, prediction, report)
     assert (tmp_path / "drift_results.csv").exists()
     assert json.loads((tmp_path / "drift_report.json").read_text())['step'] == 21
