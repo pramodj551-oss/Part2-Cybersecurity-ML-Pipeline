@@ -31,7 +31,7 @@ jobs:
         run: python -m pip install --upgrade pip && pip install -r requirements.txt
 
       - name: Compile Python modules
-        run: python -m compileall -q src
+        run: python -m compileall -q src scripts
 
       - name: Run tests
         run: python -m pytest -q
@@ -53,6 +53,9 @@ jobs:
 
       - name: Run STEP 21 Model Monitoring + Drift Detection
         run: python scripts/run_step21.py
+
+      - name: Run STEP 22 Automated Retraining + Model Lifecycle
+        run: python scripts/run_step22.py
 
       - name: Validate and execute EDA notebook
         run: |
@@ -90,6 +93,9 @@ jobs:
           test -f outputs/prediction_drift.json
           test -f outputs/drift_report.json
           test -f outputs/drift_summary.json
+          test -f outputs/retraining_decision.json
+          test -f outputs/model_lifecycle_comparison.csv
+          test -f outputs/model_registry.json
           test -s outputs/feature_importance.csv
           test -s outputs/evaluation_report.json
           test -s outputs/ablation_results.csv
@@ -99,6 +105,9 @@ jobs:
           test -s outputs/drift_results.csv
           test -s outputs/prediction_drift.json
           test -s outputs/drift_report.json
+          test -s outputs/retraining_decision.json
+          test -s outputs/model_lifecycle_comparison.csv
+          test -s outputs/model_registry.json
 
       - name: Upload dashboard-compatible ML artifacts
         if: success()
@@ -131,6 +140,9 @@ jobs:
             outputs/prediction_drift.json
             outputs/drift_report.json
             outputs/drift_summary.json
+            outputs/retraining_decision.json
+            outputs/model_lifecycle_comparison.csv
+            outputs/model_registry.json
 
       - name: Upload ML audit artifacts
         if: always()
