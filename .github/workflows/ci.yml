@@ -51,6 +51,9 @@ jobs:
       - name: Run STEP 20 Model Explainability + Feature Importance
         run: python scripts/run_step20.py
 
+      - name: Run STEP 21 Model Monitoring + Drift Detection
+        run: python scripts/run_step21.py
+
       - name: Validate and execute EDA notebook
         run: |
           python - <<'PY'
@@ -83,12 +86,19 @@ jobs:
           test -f outputs/explainability_feature_importance.csv
           test -f outputs/local_prediction_explanation.csv
           test -f outputs/model_explainability_report.json
+          test -f outputs/drift_results.csv
+          test -f outputs/prediction_drift.json
+          test -f outputs/drift_report.json
+          test -f outputs/drift_summary.json
           test -s outputs/feature_importance.csv
           test -s outputs/evaluation_report.json
           test -s outputs/ablation_results.csv
           test -s outputs/hyperparameter_optimization.csv
           test -s outputs/explainability_feature_importance.csv
           test -s outputs/local_prediction_explanation.csv
+          test -s outputs/drift_results.csv
+          test -s outputs/prediction_drift.json
+          test -s outputs/drift_report.json
 
       - name: Upload dashboard-compatible ML artifacts
         if: success()
@@ -117,6 +127,10 @@ jobs:
             outputs/explainability_feature_importance.csv
             outputs/local_prediction_explanation.csv
             outputs/model_explainability_report.json
+            outputs/drift_results.csv
+            outputs/prediction_drift.json
+            outputs/drift_report.json
+            outputs/drift_summary.json
 
       - name: Upload ML audit artifacts
         if: always()
