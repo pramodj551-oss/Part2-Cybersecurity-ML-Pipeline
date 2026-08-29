@@ -1,0 +1,52 @@
+name: STEP 28 Release Validation
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  IMAGE_NAME: cybersecurity-ml-pipeline
+
+jobs:
+  release-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Validate release configuration
+        run: |
+          test -f Dockerfile
+          test -f .dockerignore
+          test -f .github/workflows/step27-cd.yml
+      - name: Build versioned release image
+        run: |
+          VERSION="v0.28.${GITHUB_RUN_NUMBER}"
+          docker build --pull -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:sha-${GITHUB_SHA::12}" .
+          docker image inspect "${IMAGE_NAME}:${VERSION}" >/dev/null
+      - name: Start release candidate
+        run: docker run -d --name release-candidate -p 8000:8000 "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}"
+      - name: Deployment smoke tests
+        run: |
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY:-}" http://127.0.0.1:8000/ready
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY:-}" http://127.0.0.1:8000/metrics >/dev/null
+      - name: Rollback validation
+        run: |
+          docker tag "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}" "${IMAGE_NAME}:rollback-candidate"
+          docker image inspect "${IMAGE_NAME}:rollback-candidate" >/dev/null
+      - name: Container security validation
+        run: |
+          test "$(docker exec release-candidate id -u)" != "0"
+          docker inspect --format '{{.Config.User}}' release-candidate
+      - name: Cleanup
+        if: always()
+        run: docker rm -f release-candidate || true
