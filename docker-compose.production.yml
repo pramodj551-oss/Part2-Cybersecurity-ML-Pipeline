@@ -1,0 +1,25 @@
+services:
+  api:
+    build: .
+    image: cybersecurity-ml-pipeline:step31
+    environment:
+      INFERENCE_API_KEY: ${INFERENCE_API_KEY:?set INFERENCE_API_KEY}
+      REDIS_URL: redis://redis:6379/0
+      RATE_LIMIT_MODE: redis
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped

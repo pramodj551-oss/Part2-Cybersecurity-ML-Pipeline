@@ -7,7 +7,7 @@ def test_metrics_endpoint():
     service.API_KEY=None
     service.METRICS.clear(); service.LATENCIES.clear()
     client.get('/health')
-    response=client.get('/metrics')
+    response=client.get('/metrics?format=json')
     assert response.status_code==200
     body=response.json()['metrics']
     assert 'inference_requests_total' in body
