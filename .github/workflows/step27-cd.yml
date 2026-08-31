@@ -1,4 +1,4 @@
-# Conflict-resolved production CD validation; preserve STEP 23 mandatory-auth contract.
+# Production CD validation with mandatory API-key contract.
 name: STEP 27 Production CD Validation
 
 on:
@@ -49,11 +49,13 @@ jobs:
       - name: Verify protected endpoints reject missing credentials
         run: |
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/ready)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/metrics)" = "401"
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/model-info)" = "401"
       - name: Smoke test authenticated protected endpoints
         run: |
           curl --fail --silent http://127.0.0.1:8000/health
           curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
           curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/model-info
       - name: Verify non-root container user
         run: test "$(docker exec ml-api id -u)" != "0"
