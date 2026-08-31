@@ -49,7 +49,7 @@ jobs:
           curl --fail --silent http://127.0.0.1:8000/health
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/ready)" = "401"
           curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/metrics
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/model-info
       - name: Verify non-root container
         run: test "$(docker exec e2e-api id -u)" != "0"
       - name: Cleanup
