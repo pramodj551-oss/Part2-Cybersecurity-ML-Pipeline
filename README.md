@@ -4,6 +4,17 @@
 
 A modular, reproducible cybersecurity **regression** pipeline that predicts `severity_score` from historical incident data.
 
+## ⭐ Project Highlights
+
+- End-to-end regression pipeline from raw cybersecurity incidents to production-ready inference.
+- Leakage-aware train/test workflow with training-only preprocessing and 5-fold cross-validation.
+- Model comparison across Linear Regression, Decision Tree, Random Forest, and Gradient Boosting.
+- Persisted model, preprocessor, feature contract, evaluation, prediction, residual, drift, and lifecycle artifacts.
+- Automated CI validation covering `compileall`, `pytest`, the complete ML pipeline, EDA execution, SQL analytics, and runtime artifact verification.
+- Automated ML audit artifact upload for reproducible inspection of metrics and prediction outputs.
+- Production Docker/CD validation including image metadata, health endpoint, smoke tests, and non-root container verification.
+- MLOps capabilities covering monitoring, drift detection, automated retraining decisions, model lifecycle/registry controls, governance, and rollback-readiness checks.
+
 ## Project Overview
 
 The pipeline covers data loading and schema validation, train/test splitting, training-only missing-value fitting, encoding/scaling, variance filtering, model-based feature selection, regression model comparison, holdout evaluation, artifact persistence, and inference.
@@ -59,7 +70,22 @@ The STEP 30 audit workflow verifies that this exclusion remains present in the s
 
 ## Generated Artifacts
 
-The pipeline generates model, metadata, feature-importance, comparison, evaluation, prediction, and logging outputs under the configured `models/` and `outputs/` directories. Runtime model/output artifacts are intentionally ignored by Git.
+The pipeline generates model, metadata, feature-importance, comparison, evaluation, prediction, residual, monitoring, lifecycle, and logging outputs under the configured `models/` and `outputs/` directories. Runtime model/output artifacts are intentionally ignored by Git.
+
+CI uploads the key ML audit artifacts so generated values can be inspected independently of the source repository:
+
+```text
+metrics.json
+model_comparison.csv
+prediction_results.csv
+evaluation_report.json
+evaluation_summary.json
+residual_report.csv
+predictions.csv
+prediction_summary.json
+model_metadata.json
+EDA_executed.ipynb
+```
 
 ## Repository Structure
 
@@ -107,10 +133,23 @@ venv\Scripts\activate
 - Cross-validation is performed only on training data.
 - The fitted preprocessor is reused during inference.
 - The selected feature names are persisted in model metadata and validated during prediction.
+- Post-incident fields are excluded from the prediction-time feature contract to reduce leakage risk.
 - `.env` files, model binaries, generated outputs, processed datasets, logs, and local databases are ignored by Git.
+
+## CI/CD and Production Validation
+
+The project uses GitHub Actions for automated quality and production checks. The validated pipeline includes Python compilation, tests, the complete ML pipeline, EDA, SQL analytics, runtime artifact checks, ML audit artifact upload, and production Docker/CD smoke validation.
+
+The production validation also checks the container health endpoint and verifies that the application does not run as root.
+
+## Release
+
+**v1.0.0 — Production-Ready Cybersecurity ML Pipeline**
+
+This release represents the first portfolio-ready milestone after completing the ML quality, artifact consistency, CI/CD, monitoring, governance, and production-container validation work.
 
 ## Status
 
-**Production-ready regression pipeline with automated security, Docker, CI/CD, monitoring, reproducibility, and rollback-readiness validation.**
+**Production-ready regression pipeline with automated security, Docker, CI/CD, monitoring, reproducibility, governance, and rollback-readiness validation.**
 
 Production deployment should still be preceded by environment-specific operational approval and confirmation that all prediction inputs are available at inference time.
