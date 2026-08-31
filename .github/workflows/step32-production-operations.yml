@@ -36,4 +36,4 @@ jobs:
         run: python -m src.run_pipeline
       - name: Operations smoke
         run: |
-          python -c "from src.production_operations import *; r=evaluate_slo({'availability':.999,'p95_latency_ms':120,'error_rate':.001}); assert r['healthy']; assert validate_canary({'error_rate':.01,'p95_latency_ms':100},{'error_rate':.01,'p95_latency_ms':105})['promote']; print('Operations PASS')"
+          python -c 'from src.production_operations import evaluate_slo, validate_canary; r=evaluate_slo({"availability":.999,"p95_latency_ms":120,"error_rate":.001}); assert r["healthy"]; assert validate_canary({"error_rate":.01,"p95_latency_ms":100},{"error_rate":.01,"p95_latency_ms":105})["promote"]; print("Operations PASS")'
