@@ -1,4 +1,4 @@
-"""Production inference service with distributed rate limiting and Prometheus metrics."""
+"""Production inference service with mandatory API-key authentication, rate limiting and Prometheus metrics."""
 from __future__ import annotations
 
 import json
@@ -37,7 +37,6 @@ app.add_middleware(
 )
 
 REQUIRED_FEATURES = NUMERICAL_FEATURES + CATEGORICAL_FEATURES
-API_KEY = os.getenv("INFERENCE_API_KEY")
 RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 REDIS_URL = os.getenv("REDIS_URL")
 RATE_LIMIT_PREFIX = os.getenv("RATE_LIMIT_PREFIX", "cybersecurity_ml:rate_limit")
@@ -45,6 +44,7 @@ RATE_LIMIT_MODE = os.getenv("RATE_LIMIT_MODE", "auto").lower()
 _redis_client = None
 _local_requests: dict[str, list[float]] = {}
 _requests = _local_requests
+
 class MetricsDict(dict):
     _defaults = {"requests_total": 0, "errors_total": 0, "predictions_total": 0}
     def __getitem__(self, key):
@@ -59,21 +59,11 @@ def _metric_value(name: str) -> int:
     return METRICS.setdefault(name, 0)
 LATENCIES: list[float] = []
 
-REQUEST_COUNT = Counter(
-    "inference_http_requests_total", "HTTP requests processed", ["method", "path", "status"]
-)
-REQUEST_LATENCY = Histogram(
-    "inference_http_request_duration_seconds", "HTTP request latency", ["method", "path"]
-)
-ERROR_COUNT = Counter(
-    "inference_errors_total", "Inference service errors", ["type"]
-)
-PREDICTION_COUNT = Counter(
-    "inference_predictions_total", "Predictions completed", ["outcome"]
-)
-RATE_LIMIT_COUNT = Counter(
-    "inference_rate_limit_exceeded_total", "Rate-limit rejections", ["backend"]
-)
+REQUEST_COUNT = Counter("inference_http_requests_total", "HTTP requests processed", ["method", "path", "status"])
+REQUEST_LATENCY = Histogram("inference_http_request_duration_seconds", "HTTP request latency", ["method", "path"])
+ERROR_COUNT = Counter("inference_errors_total", "Inference service errors", ["type"])
+PREDICTION_COUNT = Counter("inference_predictions_total", "Predictions completed", ["outcome"])
+RATE_LIMIT_COUNT = Counter("inference_rate_limit_exceeded_total", "Rate-limit rejections", ["backend"])
 
 
 def _redis():
@@ -82,18 +72,14 @@ def _redis():
         return None
     if _redis_client is None:
         import redis
-        _redis_client = redis.Redis.from_url(
-            REDIS_URL, decode_responses=True, socket_connect_timeout=1, socket_timeout=1
-        )
+        _redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=1, socket_timeout=1)
     return _redis_client
 
 
 def _allow_request(client_id: str) -> tuple[bool, str]:
-    """Return whether the request is allowed and the backend used."""
     now = int(time.time())
     window = now // 60
     key = f"{RATE_LIMIT_PREFIX}:{client_id}:{window}"
-
     try:
         client = _redis()
         if client is not None:
@@ -105,7 +91,6 @@ def _allow_request(client_id: str) -> tuple[bool, str]:
         logger.warning(json.dumps({"event": "redis_rate_limit_unavailable", "error": type(exc).__name__}))
         if RATE_LIMIT_MODE == "redis":
             raise HTTPException(503, "Rate limiting backend unavailable") from exc
-
     bucket = [stamp for stamp in _local_requests.get(client_id, []) if now - stamp < 60]
     allowed = len(bucket) < RATE_LIMIT
     if allowed:
@@ -158,7 +143,6 @@ class ModelRuntime:
             transformed = transformed[:, [names.index(name) for name in selected]]
         return float(np.asarray(self.model.predict(transformed)).reshape(-1)[0])
 
-
 runtime = ModelRuntime()
 
 
@@ -173,11 +157,20 @@ def audit(event, request, **extra):
     }))
 
 
-def protected(request, api_key):
-    if API_KEY and api_key != API_KEY:
+def require_api_key(request: Request, api_key: str | None) -> None:
+    expected = os.getenv("INFERENCE_API_KEY")
+    if not expected:
+        ERROR_COUNT.labels(type="authentication_configuration").inc()
+        audit("authentication_configuration_missing", request)
+        raise HTTPException(503, "Inference API authentication is not configured")
+    if api_key != expected:
         ERROR_COUNT.labels(type="authentication").inc()
         audit("authentication_failed", request)
         raise HTTPException(401, "Unauthorized")
+
+
+def protected(request: Request, api_key: str | None):
+    require_api_key(request, api_key)
     if request.url.path == "/predict":
         client_id = request.client.host if request.client else "unknown"
         allowed, backend = _allow_request(client_id)
@@ -240,11 +233,7 @@ def model_info(request: Request, x_api_key: str | None = Header(default=None)):
     if not runtime.ready():
         raise HTTPException(503, "Model artifacts are not ready")
     metadata = json.loads(Path(MODEL_METADATA_FILE).read_text(encoding="utf-8"))
-    return {
-        "model": metadata.get("model_name"),
-        "metrics": {key: metadata.get(key) for key in ("r2_score", "rmse", "mae", "cv_mean")},
-        "required_features": REQUIRED_FEATURES,
-    }
+    return {"model": metadata.get("model_name"), "metrics": {key: metadata.get(key) for key in ("r2_score", "rmse", "mae", "cv_mean")}, "required_features": REQUIRED_FEATURES}
 
 
 @app.post("/predict")
