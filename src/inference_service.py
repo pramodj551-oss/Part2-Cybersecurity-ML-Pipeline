@@ -41,6 +41,9 @@ RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
 REDIS_URL = os.getenv("REDIS_URL")
 RATE_LIMIT_PREFIX = os.getenv("RATE_LIMIT_PREFIX", "cybersecurity_ml:rate_limit")
 RATE_LIMIT_MODE = os.getenv("RATE_LIMIT_MODE", "auto").lower()
+# Backward-compatible module attribute for existing tests/integrations. Runtime
+# authentication still prefers the current environment variable when present.
+API_KEY = os.getenv("INFERENCE_API_KEY")
 _redis_client = None
 _local_requests: dict[str, list[float]] = {}
 _requests = _local_requests
@@ -158,7 +161,10 @@ def audit(event, request, **extra):
 
 
 def require_api_key(request: Request, api_key: str | None) -> None:
-    expected = os.getenv("INFERENCE_API_KEY")
+    configured_key = os.getenv("INFERENCE_API_KEY")
+    # Preserve test/integration compatibility with the historical module
+    # attribute while keeping the deployment environment as the source of truth.
+    expected = configured_key if configured_key is not None else API_KEY
     if not expected:
         ERROR_COUNT.labels(type="authentication_configuration").inc()
         audit("authentication_configuration_missing", request)
