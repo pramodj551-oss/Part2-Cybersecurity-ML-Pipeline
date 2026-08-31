@@ -1,3 +1,4 @@
+# Conflict-resolved production CD validation; preserve STEP 23 mandatory-auth contract.
 name: STEP 27 Production CD Validation
 
 on:
