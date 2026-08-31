@@ -1,3 +1,4 @@
+# Conflict-resolved E2E validation; preserve mandatory API-key and non-root checks.
 name: STEP 29 End-to-End MLOps Validation
 
 on:
