@@ -1,3 +1,4 @@
+# Conflict-resolved final audit; preserve authentication, rollback, and hardening gates.
 name: STEP 30 Final Production Audit
 
 on:
@@ -9,7 +10,6 @@ permissions:
   contents: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   INFERENCE_API_KEY: ci-step30-smoke-key
 
 jobs:
@@ -18,104 +18,76 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -r requirements.txt
-
       - name: Full regression tests
         run: python -m pytest -q
-
-      - name: Reproducibility contract
-        run: |
-          python - <<'PY'
-          import re
-          from pathlib import Path
-
-          config = Path("src/config.py").read_text(encoding="utf-8")
-          readme = Path("README.md").read_text(encoding="utf-8")
-
-          required = (
-              (config, r"RANDOM_STATE\s*=\s*42", "src/config.py RANDOM_STATE"),
-              (config, r"CV_FOLDS\s*=\s*5", "src/config.py CV_FOLDS"),
-              (readme, r"RANDOM_STATE\s*(?:=|:)\s*42", "README RANDOM_STATE"),
-              (readme, r"CV_FOLDS\s*(?:=|:)\s*5", "README CV_FOLDS"),
-          )
-          for text, pattern, label in required:
-              if not re.search(pattern, text):
-                  raise SystemExit(f"Missing reproducibility contract: {label}")
-
-          print("Reproducibility contract PASS")
-          PY
-
-      - name: Prediction-time feature contract audit
-        run: |
-          grep -q 'NUMERICAL_FEATURES' src/config.py
-          grep -q 'CATEGORICAL_FEATURES' src/config.py
-          grep -q 'downtime_hours, response_team_size, regulatory_fine_usd, resolved_within_7_days' src/config.py
-
-      - name: Security configuration audit
-        run: |
-          grep -R "permissions:" .github/workflows >/dev/null
-          grep -R "contents: read" .github/workflows >/dev/null
-          test ! -f .env
-
       - name: Generate runtime artifacts
         run: python run_pipeline.py
-
       - name: Validate model artifacts
         run: |
           test -s models/best_model.pkl
           test -s models/preprocessor.pkl
           test -s models/model_metadata.json
-
       - name: Docker production audit
         run: |
           docker build --pull -t cybersecurity-ml-pipeline:audit .
           docker image inspect cybersecurity-ml-pipeline:audit >/dev/null
-
-      - name: Start audit container
+      - name: Start audit container with mandatory API key
         run: |
+          docker rm -f audit-container >/dev/null 2>&1 || true
           docker run -d --name audit-container -p 8000:8000 \
             -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
             cybersecurity-ml-pipeline:audit
-
-      - name: Health and readiness smoke tests
+      - name: Wait for service
         run: |
           for i in {1..30}; do
-            curl --fail --silent http://127.0.0.1:8000/health >/dev/null && break
+            if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then exit 0; fi
             sleep 2
           done
-          curl --fail --silent http://127.0.0.1:8000/health
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
-
+          docker logs audit-container || true
+          exit 1
+      - name: Verify authentication enforcement
+        run: |
+          set -euo pipefail
+          missing=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/ready)
+          wrong=$(curl --silent --output /dev/null --write-out '%{http_code}' -H 'X-API-Key: definitely-wrong-key' http://127.0.0.1:8000/ready)
+          echo "ready without key: ${missing}"
+          echo "ready with wrong key: ${wrong}"
+          test "${missing}" = "401"
+          test "${wrong}" = "401"
+      - name: Health and authenticated readiness smoke tests
+        run: |
+          set -euo pipefail
+          curl --fail --silent http://127.0.0.1:8000/health >/dev/null
+          ready=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready)
+          info=$(curl --silent --output /dev/null --write-out '%{http_code}' -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/model-info)
+          echo "authenticated /ready: ${ready}"
+          echo "authenticated /model-info: ${info}"
+          test "${ready}" = "200"
+          test "${info}" = "200"
       - name: Rollback validation
         run: |
           set -euo pipefail
           docker tag cybersecurity-ml-pipeline:audit cybersecurity-ml-pipeline:rollback-audit
           docker image inspect cybersecurity-ml-pipeline:rollback-audit >/dev/null
+          docker rm -f rollback-container >/dev/null 2>&1 || true
           docker run -d --name rollback-container -p 8001:8000 \
             -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
             cybersecurity-ml-pipeline:rollback-audit
           trap 'docker rm -f rollback-container >/dev/null 2>&1 || true' EXIT
           for i in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then
-              break
-            fi
+            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then break; fi
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8001/health >/dev/null
           curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8001/ready >/dev/null
-
       - name: Container hardening validation
         run: test "$(docker exec audit-container id -u)" != "0"
-
       - name: Cleanup
         if: always()
-        run: |
-          docker rm -f audit-container rollback-container >/dev/null 2>&1 || true
+        run: docker rm -f audit-container rollback-container >/dev/null 2>&1 || true

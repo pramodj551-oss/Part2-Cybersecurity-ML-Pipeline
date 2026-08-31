@@ -1,9 +1,12 @@
 from pathlib import Path
 
 
-def test_release_workflow_has_versioning_smoke_rollback_and_security_checks():
+def test_release_workflow_has_versioning_auth_rollback_and_security_checks():
     text = Path('.github/workflows/step28-release.yml').read_text(encoding='utf-8')
-    for expected in ('docker build', 'GITHUB_RUN_NUMBER', '/health', '/ready', '/metrics', 'rollback-candidate', 'id -u'):
+    for expected in (
+        'docker build', 'GITHUB_RUN_NUMBER', '/health', '/ready', '/model-info',
+        'INFERENCE_API_KEY', 'X-API-Key', '401', 'rollback-candidate', 'id -u'
+    ):
         assert expected in text
 
 

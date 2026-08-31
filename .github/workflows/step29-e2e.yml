@@ -1,3 +1,4 @@
+# Conflict-resolved E2E validation; preserve mandatory API-key and non-root checks.
 name: STEP 29 End-to-End MLOps Validation
 
 on:
@@ -9,8 +10,8 @@ permissions:
   contents: read
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   PYTHONPATH: .
+  INFERENCE_API_KEY: ci-step29-smoke-key
 
 jobs:
   e2e-mlops:
@@ -23,30 +24,35 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
       - name: Run full regression suite
-        run: pytest -q
+        run: python -m pytest -q
       - name: Run end-to-end pipeline
         run: python run_pipeline.py
       - name: Validate runtime outputs
         run: |
           test -d outputs
           test -d models
-          test -f models/best_model.pkl
-          test -f models/preprocessor.pkl
-          test -f models/model_metadata.json
+          test -s models/best_model.pkl
+          test -s models/preprocessor.pkl
+          test -s models/model_metadata.json
       - name: Build production image
         run: docker build --pull -t cybersecurity-ml-pipeline:e2e .
-      - name: Docker smoke test
+      - name: Docker smoke test with mandatory API key
         run: |
-          docker run -d --name e2e-api -p 8000:8000 cybersecurity-ml-pipeline:e2e
+          docker run -d --name e2e-api -p 8000:8000 \
+            -e INFERENCE_API_KEY="${INFERENCE_API_KEY}" \
+            cybersecurity-ml-pipeline:e2e
           for i in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8000/health
-          curl --fail --silent http://127.0.0.1:8000/ready
-          curl --fail --silent http://127.0.0.1:8000/metrics
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/ready)" = "401"
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/model-info
+      - name: Verify non-root container
+        run: test "$(docker exec e2e-api id -u)" != "0"
       - name: Cleanup
         if: always()
         run: docker rm -f e2e-api || true

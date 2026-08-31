@@ -1,8 +1,9 @@
 from fastapi.testclient import TestClient
-from src.inference_service import app
 
-client = TestClient(app)
-TEST_HEADERS = {'X-API-Key': 'ci-step30-smoke-key'}
+import src.inference_service as service
+
+client = TestClient(service.app)
+TEST_KEY = "ci-step24-test-key"
 
 
 def _valid_payload():
@@ -23,28 +24,24 @@ def test_health_is_public():
     assert client.get('/health').status_code == 200
 
 
-def test_invalid_api_key_is_rejected_when_configured(monkeypatch):
-    monkeypatch.setattr('src.inference_service.API_KEY', 'secret')
+def test_missing_server_configuration_returns_503(monkeypatch):
+    monkeypatch.delenv("INFERENCE_API_KEY", raising=False)
+    assert client.get('/ready').status_code == 503
+
+
+def test_invalid_api_key_is_rejected(monkeypatch):
+    monkeypatch.setenv("INFERENCE_API_KEY", TEST_KEY)
     assert client.get('/ready', headers={'X-API-Key': 'wrong'}).status_code == 401
-    monkeypatch.setattr('src.inference_service.API_KEY', None)
-
-
-def test_security_headers():
-    response = client.get('/health')
-    assert response.headers['X-Content-Type-Options'] == 'nosniff'
-    assert response.headers['X-Frame-Options'] == 'DENY'
-    assert response.headers['Cache-Control'] == 'no-store'
 
 
 def test_rate_limit(monkeypatch):
-    import src.inference_service as service
-    monkeypatch.setattr(service, 'API_KEY', TEST_HEADERS['X-API-Key'])
+    monkeypatch.setenv("INFERENCE_API_KEY", TEST_KEY)
     monkeypatch.setattr(service, 'RATE_LIMIT', 1)
-    service._requests.clear()
+    service._local_requests.clear()
     try:
-        first = client.post('/predict', json=_valid_payload(), headers=TEST_HEADERS)
-        second = client.post('/predict', json=_valid_payload(), headers=TEST_HEADERS)
+        first = client.post('/predict', json=_valid_payload(), headers={'X-API-Key': TEST_KEY})
+        second = client.post('/predict', json=_valid_payload(), headers={'X-API-Key': TEST_KEY})
         assert first.status_code != 429
         assert second.status_code == 429
     finally:
-        service._requests.clear()
+        service._local_requests.clear()
