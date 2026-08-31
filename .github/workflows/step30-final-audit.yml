@@ -53,7 +53,7 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8000/health
           curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/ready
-          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
+          curl --fail --silent -H "X-API-Key: ${INFERENCE_API_KEY}" http://127.0.0.1:8000/model-info >/dev/null
       - name: Rollback validation
         run: |
           set -euo pipefail
