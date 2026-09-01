@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
-from src.config import FEATURE_SELECTION_TOP_N
+from src.config import FEATURE_COLUMNS_FILE, FEATURE_SELECTION_TOP_N
 from src.data_loader import DataLoader
 from src.preprocessing import Preprocessor
 from src.feature_selection import FeatureSelector
@@ -12,6 +12,7 @@ from src.model_training import ModelTrainer
 from src.model_evaluation import ModelEvaluator
 from src.predict import Predictor
 from src.logger import logger, log_success
+from src.utils import save_model
 
 
 class MLPipeline:
@@ -68,6 +69,38 @@ class MLPipeline:
         )
         return best, report
 
+    def validate_runtime_feature_contract(self, preprocessor, selected_features, model) -> None:
+        """Validate and persist the exact model-facing inference contract."""
+        selected = list(selected_features or [])
+        transformed_names = list(preprocessor.get_feature_names_out())
+        missing = [name for name in selected if name not in transformed_names]
+        if missing:
+            raise RuntimeError(
+                "Selected feature contract contains names absent from preprocessor output: "
+                + ", ".join(missing)
+            )
+
+        expected = getattr(model, "n_features_in_", None)
+        if expected is None:
+            raise RuntimeError("Best model does not expose n_features_in_; runtime contract cannot be verified.")
+        if len(selected) != int(expected):
+            raise RuntimeError(
+                "Training feature contract mismatch: "
+                f"selected={len(selected)}, model.n_features_in_={expected}, "
+                f"preprocessor_output={len(transformed_names)}"
+            )
+
+        # The model is trained on the selected subset, not the full encoded
+        # preprocessor output. Persist exactly that model-facing contract.
+        save_model(selected, FEATURE_COLUMNS_FILE)
+        persisted = list(__import__("joblib").load(FEATURE_COLUMNS_FILE))
+        if persisted != selected:
+            raise RuntimeError("Persisted feature_columns.pkl does not match selected training features.")
+
+        self.pipeline_summary["preprocessor_output_features"] = len(transformed_names)
+        self.pipeline_summary["model_input_features"] = int(expected)
+        self.pipeline_summary["feature_contract_valid"] = True
+
     def evaluate_model(self, model, X_test, y_test):
         result, summary = self.model_evaluator.run(model, X_test, y_test)
         self.pipeline_summary.update(
@@ -121,6 +154,7 @@ class MLPipeline:
                 selected_features=selected,
                 raw_train_df=raw_train_df,
             )
+            self.validate_runtime_feature_contract(preprocessor, selected, best)
             self.evaluate_model(best, Xte, y_test)
             self.generate_predictions(
                 df,
