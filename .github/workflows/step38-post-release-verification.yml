@@ -1,0 +1,95 @@
+name: STEP 38 Post-Release Verification
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  IMAGE_NAME: ghcr.io/pramodj551-oss/cybersecurity-ml-pipeline
+  RELEASE_VERSION: v1.1.0
+  PREVIOUS_VERSION: v1.0.0
+
+jobs:
+  post-release-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull v1.1.0 production image
+        run: docker pull "${IMAGE_NAME}:${RELEASE_VERSION}"
+
+      - name: Inspect v1.1.0 image
+        run: |
+          set -euo pipefail
+          docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}"
+          docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" --format '{{.RepoTags}}'
+
+      - name: Verify v1.1.0 container smoke tests
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SMOKE_API_KEY"
+          docker run -d --name step38-v110 -p 8010:8000 \
+            -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
+            "${IMAGE_NAME}:${RELEASE_VERSION}"
+          trap 'docker rm -f step38-v110 >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8010/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8010/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8010/ready)" = "401"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8010/metrics)" = "401"
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8010/ready
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8010/metrics >/dev/null
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8010/model-info >/dev/null
+
+      - name: Verify v1.1.0 runs as non-root
+        run: |
+          set -euo pipefail
+          CONFIG_USER="$(docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" --format '{{.Config.User}}')"
+          test -n "$CONFIG_USER"
+          test "$CONFIG_USER" != "0"
+          test "$CONFIG_USER" != "root"
+          RUNTIME_UID="$(docker run --rm --entrypoint sh "${IMAGE_NAME}:${RELEASE_VERSION}" -c 'id -u')"
+          test "$RUNTIME_UID" != "0"
+
+      - name: Pull previous known-good v1.0.0 image
+        run: docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+
+      - name: Verify real v1.0.0 rollback image
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SMOKE_API_KEY"
+          docker run -d --name step38-rollback -p 8011:8000 \
+            -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
+            "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+          trap 'docker rm -f step38-rollback >/dev/null 2>&1 || true' EXIT
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8011/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8011/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8011/ready)" = "401"
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8011/ready
+
+      - name: Final evidence
+        run: |
+          echo "STEP 38 post-release verification completed for ${IMAGE_NAME}:${RELEASE_VERSION}"
+          echo "Rollback image verified: ${IMAGE_NAME}:${PREVIOUS_VERSION}"
