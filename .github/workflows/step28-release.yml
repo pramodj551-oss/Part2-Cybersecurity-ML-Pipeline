@@ -11,7 +11,8 @@ permissions:
 
 env:
   IMAGE_NAME: cybersecurity-ml-pipeline
-  SMOKE_API_KEY: ci-step28-smoke-key
+  RELEASE_VERSION: v1.1.0
+  PREVIOUS_VERSION: v1.0.0
 
 jobs:
   release-validation:
@@ -37,17 +38,43 @@ jobs:
           test -s models/best_model.pkl
           test -s models/preprocessor.pkl
           test -s models/model_metadata.json
-      - name: Build versioned release image
+      - name: Validate smoke secret is configured
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
+        run: test -n "$SMOKE_API_KEY"
+      - name: Build v1.1.0 release image
         run: |
-          VERSION="v0.28.${GITHUB_RUN_NUMBER}"
-          docker build --pull -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:sha-${GITHUB_SHA::12}" .
-          docker image inspect "${IMAGE_NAME}:${VERSION}" >/dev/null
-      - name: Start release candidate with mandatory API key
+          docker build --pull \
+            -t "${IMAGE_NAME}:${RELEASE_VERSION}" \
+            -t "${IMAGE_NAME}:sha-${GITHUB_SHA::12}" .
+          docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" >/dev/null
+      - name: Pull previous known-good release image
+        run: docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+      - name: Validate previous release rollback image
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
+        run: |
+          docker run -d --name previous-release -p 8001:8000 \
+            -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
+            "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+          for i in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8001/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8001/health
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8001/ready)" = "401"
+          curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8001/ready
+          docker rm -f previous-release
+      - name: Start v1.1.0 release candidate with mandatory API key
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
           docker run -d --name release-candidate -p 8000:8000 \
-            -e INFERENCE_API_KEY="${SMOKE_API_KEY}" \
-            "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}"
+            -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
+            "${IMAGE_NAME}:${RELEASE_VERSION}"
       - name: Deployment smoke tests
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
           for i in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
@@ -59,12 +86,12 @@ jobs:
           curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8000/ready
           curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8000/metrics >/dev/null
           curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" http://127.0.0.1:8000/model-info >/dev/null
-      - name: Rollback image validation
+      - name: Release image identity validation
         run: |
-          docker tag "${IMAGE_NAME}:v0.28.${GITHUB_RUN_NUMBER}" "${IMAGE_NAME}:rollback-candidate"
-          docker image inspect "${IMAGE_NAME}:rollback-candidate" >/dev/null
+          docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" >/dev/null
+          test "$(docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" --format '{{.Config.User}}')" != "0"
       - name: Container security validation
         run: test "$(docker exec release-candidate id -u)" != "0"
       - name: Cleanup
         if: always()
-        run: docker rm -f release-candidate || true
+        run: docker rm -f release-candidate previous-release 2>/dev/null || true
