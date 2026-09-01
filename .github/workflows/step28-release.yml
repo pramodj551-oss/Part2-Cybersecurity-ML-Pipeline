@@ -22,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
@@ -58,12 +61,39 @@ jobs:
           docker image inspect "${IMAGE_NAME}:${RELEASE_VERSION}" >/dev/null
           docker push "${IMAGE_NAME}:${RELEASE_VERSION}"
           docker push "${IMAGE_NAME}:sha-${GITHUB_SHA::12}"
+      - name: Ensure previous known-good release image exists
+        run: |
+          set -euo pipefail
+          if docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"; then
+            echo "Previous release image ${IMAGE_NAME}:${PREVIOUS_VERSION} is available."
+            exit 0
+          fi
+
+          echo "Previous release image is missing; bootstrapping it from immutable Git tag ${PREVIOUS_VERSION}."
+          git fetch --tags --force origin "refs/tags/${PREVIOUS_VERSION}:refs/tags/${PREVIOUS_VERSION}"
+          git rev-parse --verify "refs/tags/${PREVIOUS_VERSION}" >/dev/null
+
+          BUILD_DIR="$(mktemp -d)"
+          trap 'rm -rf "$BUILD_DIR"' EXIT
+          git archive "${PREVIOUS_VERSION}" | tar -x -C "$BUILD_DIR"
+
+          docker build --pull \
+            -t "${IMAGE_NAME}:${PREVIOUS_VERSION}" \
+            "$BUILD_DIR"
+          docker image inspect "${IMAGE_NAME}:${PREVIOUS_VERSION}" >/dev/null
+          docker push "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+          docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
       - name: Pull previous known-good release image
-        run: docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+        run: |
+          set -euo pipefail
+          docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+          docker image inspect "${IMAGE_NAME}:${PREVIOUS_VERSION}" >/dev/null
       - name: Validate previous release rollback image
         env:
           SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
+          set -euo pipefail
+          docker rm -f previous-release 2>/dev/null || true
           docker run -d --name previous-release -p 8001:8000 \
             -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
             "${IMAGE_NAME}:${PREVIOUS_VERSION}"
@@ -86,6 +116,7 @@ jobs:
         env:
           SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
+          set -euo pipefail
           for i in {1..30}; do
             if curl --fail --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
             sleep 2
