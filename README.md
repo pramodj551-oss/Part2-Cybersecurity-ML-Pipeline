@@ -122,7 +122,7 @@ The STEP 39 workflow runs on pushes and pull requests targeting `main` and suppo
 
 GitHub Actions provides the authoritative execution evidence. README claims are documentation only; release and production gates are considered validated only when their actual workflow runs and logs pass.
 
-The reproducibility contract requires the documented training seed **`RANDOM_STATE=42`**. This value is part of the CI documentation contract and must remain aligned with the implementation/tests.
+The reproducibility contract requires the documented training seed **`RANDOM_STATE=42`** and cross-validation configuration **`CV_FOLDS=5`**. These values are part of the CI documentation contract and must remain aligned with the implementation/tests.
 
 | Workflow | Covers |
 | --- | --- |
