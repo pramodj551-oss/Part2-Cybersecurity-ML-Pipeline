@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -63,6 +63,83 @@ jobs:
         run: |
           ! grep -RniE 'INFERENCE_API_KEY|STEP28_SMOKE_API_KEY|GITHUB_TOKEN' src/production_observability.py tests/test_production_observability.py
 
+      - name: Generate runtime model artifacts
+        run: python -m src.run_pipeline
+
+      - name: Verify six-file runtime artifact contract
+        run: |
+          set -euo pipefail
+          test -s models/best_model.pkl
+          test -s models/preprocessor.pkl
+          test -s models/feature_columns.pkl
+          test -s outputs/evaluation_report.json
+          test -s outputs/metrics.json
+          test -s outputs/feature_importance.csv
+
+      - name: Build immutable Part 3 runtime bundle
+        run: |
+          set -euo pipefail
+          rm -rf part3-runtime-bundle
+          mkdir -p part3-runtime-bundle/models part3-runtime-bundle/outputs
+          cp models/best_model.pkl models/preprocessor.pkl models/feature_columns.pkl part3-runtime-bundle/models/
+          cp outputs/evaluation_report.json outputs/metrics.json outputs/feature_importance.csv part3-runtime-bundle/outputs/
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          root = Path("part3-runtime-bundle")
+          files = [
+              "models/best_model.pkl",
+              "models/preprocessor.pkl",
+              "models/feature_columns.pkl",
+              "outputs/evaluation_report.json",
+              "outputs/metrics.json",
+              "outputs/feature_importance.csv",
+          ]
+          manifest = {
+              "source_repository": "pramodj551-oss/Part2-Cybersecurity-ML-Pipeline",
+              "source_commit": "${{ github.sha }}",
+              "source_run_id": "${{ github.run_id }}",
+              "artifact_name": "part2-runtime-artifacts",
+              "files": {
+                  p: hashlib.sha256((root / p).read_bytes()).hexdigest()
+                  for p in files
+              },
+          }
+          (root / "artifact_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          PY
+          cd part3-runtime-bundle
+          zip -qr ../part2-runtime-bundle.zip .
+          unzip -t ../part2-runtime-bundle.zip
+
+      - name: Publish immutable runtime release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="part2-runtime-${{ github.run_id }}"
+          gh release create "$tag" part2-runtime-bundle.zip \
+            --repo "${{ github.repository }}" \
+            --title "Part 2 runtime ${tag}" \
+            --notes "Immutable six-file runtime bundle for Part 3. Source workflow run: ${{ github.run_id }}. Source commit: ${{ github.sha }}."
+          echo "Published immutable runtime release: $tag"
+
+      - name: Verify published immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="part2-runtime-${{ github.run_id }}"
+          asset_url="https://github.com/${{ github.repository }}/releases/download/${tag}/part2-runtime-bundle.zip"
+          gh release view "$tag" --repo "${{ github.repository }}" >/dev/null
+          curl --fail --silent --show-error --location "$asset_url" -o /tmp/verified-part2-runtime-bundle.zip
+          unzip -t /tmp/verified-part2-runtime-bundle.zip >/dev/null
+          unzip -l /tmp/verified-part2-runtime-bundle.zip | grep -Fq "artifact_manifest.json"
+          for file in "models/best_model.pkl" "models/preprocessor.pkl" "models/feature_columns.pkl" "outputs/evaluation_report.json" "outputs/metrics.json" "outputs/feature_importance.csv"; do
+            unzip -l /tmp/verified-part2-runtime-bundle.zip | grep -Fq "$file"
+          done
+          echo "PASS published release asset and 6-file contract verified: $tag"
+
       - name: Final STEP 39 evidence
         run: |
           echo "STEP 39 Production Monitoring & Observability PASS"
@@ -70,3 +147,5 @@ jobs:
           echo "Model monitoring: prediction PSI and target drift thresholds"
           echo "Alerting: error rate, latency, prediction drift, target drift"
           echo "Security: no API secrets emitted by monitoring implementation"
+          echo "Runtime publication: immutable six-file Part 3 bundle + manifest"
+          echo "Publication verification: release and six-file asset contract checked"
