@@ -8,7 +8,6 @@ permissions:
   packages: write
 
 env:
-  REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/pramodj551-oss/cybersecurity-ml-pipeline
   RELEASE_VERSION: v1.1.0
   PREVIOUS_VERSION: v1.0.0
@@ -23,9 +22,18 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Verify main is the expected merged release commit
+      - name: Verify release version is not already published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          test "$(git rev-parse HEAD)" = "cc0a9d46a5ec7f089409d04e4abb7ba570bfe043"
+          if gh release view "${RELEASE_VERSION}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_VERSION} already exists; refusing duplicate release."
+            exit 1
+          fi
+          if git rev-parse "refs/tags/${RELEASE_VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${RELEASE_VERSION} already exists; refusing duplicate release."
+            exit 1
+          fi
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -68,7 +76,7 @@ jobs:
           test -n "$SMOKE_API_KEY"
           docker run -d --name previous-release -p 8001:8000 -e INFERENCE_API_KEY="$SMOKE_API_KEY" "${IMAGE_NAME}:${PREVIOUS_VERSION}"
           for i in {1..30}; do
-            curl --silent http://127.0.0.1:8001/health >/dev/null && break
+            if curl --silent http://127.0.0.1:8001/health >/dev/null; then break; fi
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8001/health
@@ -89,7 +97,7 @@ jobs:
           SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
           for i in {1..30}; do
-            curl --silent http://127.0.0.1:8000/health >/dev/null && break
+            if curl --silent http://127.0.0.1:8000/health >/dev/null; then break; fi
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8000/health
