@@ -119,7 +119,14 @@ class Preprocessor:
         save_model(preprocessor, PREPROCESSOR_FILE)
 
     def save_feature_names(self, preprocessor) -> None:
-        pd.DataFrame({"feature_name": list(preprocessor.get_feature_names_out())}).to_csv(FEATURE_COLUMNS_FILE, index=False)
+        """Persist the feature-name contract as a real pickle artifact.
+
+        FEATURE_COLUMNS_FILE intentionally has a .pkl extension and is part
+        of the cross-repository runtime artifact contract.  Do not write CSV
+        bytes to this path: downstream consumers load it as a Python object.
+        """
+        feature_names = list(preprocessor.get_feature_names_out())
+        save_model(feature_names, FEATURE_COLUMNS_FILE)
 
     def preprocessing_summary(self, train_df: pd.DataFrame, test_df: pd.DataFrame) -> None:
         logger.info("Train Shape : %s | Test Shape : %s | Target : %s", train_df.shape, test_df.shape, TARGET_COLUMN)
