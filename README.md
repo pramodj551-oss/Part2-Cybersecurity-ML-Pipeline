@@ -14,6 +14,8 @@ A modular, reproducible cybersecurity **regression** pipeline that predicts `sev
 - Automated ML audit artifact upload for reproducible inspection of metrics and prediction outputs.
 - Production Docker/CD validation including image metadata, health endpoint, smoke tests, and non-root container verification.
 - MLOps capabilities covering monitoring, drift detection, automated retraining decisions, model lifecycle/registry controls, governance, and rollback-readiness checks.
+- STEP 38 post-release verification of the published `v1.1.0` GHCR image, secret-based authentication, non-root runtime, and real `v1.0.0` rollback.
+- STEP 39 production monitoring and observability for request/error metrics, latency, prediction drift, target drift, deterministic alerts, and secret-emission protection.
 
 ## Project Overview
 
@@ -72,165 +74,84 @@ The STEP 30 audit workflow verifies that this exclusion remains present in the s
 
 The pipeline generates model, metadata, feature-importance, comparison, evaluation, prediction, residual, monitoring, lifecycle, and logging outputs under the configured `models/` and `outputs/` directories. Runtime model/output artifacts are intentionally ignored by Git.
 
-CI uploads the key ML audit artifacts so generated values can be inspected independently of the source repository:
-
-```text
-metrics.json
-model_comparison.csv
-prediction_results.csv
-evaluation_report.json
-evaluation_summary.json
-residual_report.csv
-predictions.csv
-prediction_summary.json
-model_metadata.json
-EDA_executed.ipynb
-```
+CI uploads key ML audit artifacts so generated values can be inspected independently from source code.
 
 ## MLOps Capabilities
 
-Beyond the core regression pipeline, the project includes a set of production MLOps controls, each implemented as a standalone, independently tested module:
+Beyond the core regression pipeline, the project includes independently tested production MLOps controls:
 
-- **Feature engineering & ablation** (`src/feature_engineering.py`) — reproducible feature engineering with an ablation study measuring the impact of removing feature groups on model performance.
-- **Hyperparameter optimization** (`src/hyperparameter_optimization.py`) — deterministic `RandomizedSearchCV` over the top regression models, with preprocessing kept inside the CV pipeline so every fold only learns from its own training rows.
-- **Model calibration** (`src/model_calibration.py`) — calibration and decision-threshold optimization.
-- **Model explainability** (`src/model_explainability.py`) — feature-importance and local prediction explanations.
-- **Drift monitoring** (`src/model_monitoring.py`) — Population Stability Index (PSI) for numeric feature/prediction drift and total-variation-distance drift scoring for categorical features, with configurable thresholds.
-- **Automated retraining & lifecycle** (`src/model_lifecycle.py`) — drift-based retraining triggers, CV-based candidate-vs-production model comparison, and an atomic promote/rollback transaction that keeps a model and its preprocessor in sync (staged copy → backup → atomic swap → automatic rollback on failure).
-- **Governance / policy-as-code** (`src/governance.py`) — policy-gated promotion decisions (tests, security, drift, canary must all pass), SHA-256 artifact fingerprinting, and an append-only audit log.
-- **Production operations** (`src/production_operations.py`) and **production intelligence** (`src/production_intelligence.py`) — operational and resilience/decisioning controls for running the model in production.
-- **Inference service** (`src/inference_service.py`) — a FastAPI service with distributed rate limiting and Prometheus metrics, served via the Dockerfile's `uvicorn` entrypoint.
+- **Feature engineering & ablation** (`src/feature_engineering.py`)
+- **Hyperparameter optimization** (`src/hyperparameter_optimization.py`)
+- **Model calibration** (`src/model_calibration.py`)
+- **Model explainability** (`src/model_explainability.py`)
+- **Drift monitoring** (`src/model_monitoring.py`)
+- **Automated retraining & lifecycle** (`src/model_lifecycle.py`)
+- **Governance / policy-as-code** (`src/governance.py`)
+- **Production operations** (`src/production_operations.py`)
+- **Production intelligence** (`src/production_intelligence.py`)
+- **Inference service** (`src/inference_service.py`)
+- **Production observability** (`src/production_observability.py`) — request/error metrics, latency, HTTP status distribution, prediction PSI, target drift, and deterministic alert thresholds.
 
-## Repository Structure
+## STEP 38 — Post-Release Verification
 
-```text
-Part2-Cybersecurity-ML-Pipeline/
-├── data/raw/cybersecurity_incident_reports.csv
-├── notebooks/EDA.ipynb
-├── src/
-│   ├── config.py
-│   ├── data_loader.py
-│   ├── feature_engineering.py
-│   ├── feature_selection.py
-│   ├── governance.py
-│   ├── hyperparameter_optimization.py
-│   ├── inference_service.py
-│   ├── logger.py
-│   ├── model_calibration.py
-│   ├── model_evaluation.py
-│   ├── model_explainability.py
-│   ├── model_lifecycle.py
-│   ├── model_monitoring.py
-│   ├── model_training.py
-│   ├── pipeline.py
-│   ├── predict.py
-│   ├── preprocessing.py
-│   ├── production_intelligence.py
-│   ├── production_operations.py
-│   ├── run_pipeline.py
-│   └── utils.py
-├── scripts/
-│   ├── run_sql_queries.py
-│   ├── run_step19.py
-│   ├── run_step20.py
-│   ├── run_step21.py
-│   ├── run_step22.py
-│   └── smoke_step31.py
-├── tests/
-│   ├── test_smoke.py
-│   ├── test_feature_engineering.py
-│   ├── test_hyperparameter_optimization.py
-│   ├── test_inference_service.py
-│   ├── test_model_calibration.py
-│   ├── test_model_explainability.py
-│   ├── test_model_lifecycle.py
-│   ├── test_model_monitoring.py
-│   ├── test_step24_security.py
-│   ├── test_step25_monitoring.py
-│   ├── test_step26_lifecycle.py
-│   ├── test_step27_cd.py
-│   ├── test_step28_release.py
-│   ├── test_step29_e2e_mlops.py
-│   ├── test_step31_production_scale.py
-│   ├── test_step32_production_operations.py
-│   ├── test_step33_governance.py
-│   ├── test_step34_production_intelligence.py
-│   └── test_step35_artifact_consistency.py
-├── .github/workflows/
-│   ├── ci.yml
-│   ├── step27-cd.yml
-│   ├── step28-release.yml
-│   ├── step29-e2e.yml
-│   ├── step30-final-audit.yml
-│   ├── step31-production-scale.yml
-│   ├── step32-production-operations.yml
-│   ├── step33-advanced-governance.yml
-│   └── step34-production-intelligence.yml
-├── deploy/release.env.example
-├── docs/
-│   ├── STEP32_RUNBOOK.md
-│   ├── STEP33_GOVERNANCE.md
-│   └── STEP34_PRODUCTION_INTELLIGENCE.md
-├── Dockerfile
-├── docker-compose.production.yml
-├── queries.sql
-├── run_pipeline.py
-├── requirements.txt
-├── LICENSE
-├── CHANGELOG.md
-└── .gitignore
-```
+Workflow: `.github/workflows/step38-post-release-verification.yml`
 
-## Installation
-
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python run_pipeline.py
-```
-
-Windows activation:
+STEP 38 verifies the published production image:
 
 ```text
-venv\Scripts\activate
+ghcr.io/pramodj551-oss/cybersecurity-ml-pipeline:v1.1.0
 ```
 
-## Reproducibility and Security
+It performs an actual GHCR pull and image inspection, uses the repository secret `STEP28_SMOKE_API_KEY` for authenticated smoke tests, validates protected endpoints, confirms non-root runtime, and pulls and runs the previous known-good `v1.0.0` image for rollback validation.
 
-- `RANDOM_STATE=42` and `CV_FOLDS=5` are centralized in `src/config.py`.
-- Cross-validation is performed only on training data.
-- The fitted preprocessor is reused during inference.
-- The selected feature names are persisted in model metadata and validated during prediction.
-- Post-incident fields are excluded from the prediction-time feature contract to reduce leakage risk.
-- `.env` files, model binaries, generated outputs, processed datasets, logs, and local databases are ignored by Git.
+Existing regression and security tests remain part of CI and are not replaced by STEP 38.
+
+## STEP 39 — Production Monitoring & Observability
+
+Workflow: `.github/workflows/step39-production-monitoring.yml`
+
+Implementation: `src/production_observability.py`
+
+Tests: `tests/test_production_observability.py`
+
+STEP 39 provides deterministic production observability for request totals, error rate, average latency, HTTP status distribution, prediction PSI, target drift, and alert thresholds. The monitoring implementation is also checked for accidental emission of API secrets.
+
+The STEP 39 workflow runs on pushes and pull requests targeting `main` and supports manual dispatch. It retains the full regression/security suite and the existing model-monitoring tests.
 
 ## CI/CD and Production Validation
 
-The project uses GitHub Actions across nine workflow files (`.github/workflows/`), each covering a distinct stage of validation:
+GitHub Actions provides the authoritative execution evidence. README claims are documentation only; release and production gates are considered validated only when their actual workflow runs and logs pass.
 
 | Workflow | Covers |
 | --- | --- |
-| `ci.yml` | Python compilation, `pytest`, the full ML pipeline, feature engineering/ablation (STEP 17), hyperparameter optimization (STEP 18), calibration (STEP 19), explainability (STEP 20), drift monitoring (STEP 21), lifecycle/retraining (STEP 22), EDA notebook execution, 29 SQL analytics queries, and runtime-artifact verification for ~24 generated outputs |
+| `ci.yml` | Python compilation, full `pytest`, complete ML pipeline, EDA, SQL analytics, and runtime artifact verification |
 | `step27-cd.yml` | Continuous delivery checks |
-| `step28-release.yml` | Release validation |
+| `step28-release.yml` | Release validation, GHCR build/push, secret-based smoke, and rollback validation |
 | `step29-e2e.yml` | End-to-end MLOps checks |
-| `step30-final-audit.yml` | Final production-readiness audit, including the leakage-guard configuration check |
+| `step30-final-audit.yml` | Final production-readiness and leakage-guard audit |
 | `step31-production-scale.yml` | Production scale/smoke tests |
 | `step32-production-operations.yml` | Production operations controls |
 | `step33-advanced-governance.yml` | Governance / policy-as-code checks |
 | `step34-production-intelligence.yml` | Production intelligence and resilience checks |
+| `step38-post-release-verification.yml` | Published v1.1.0 GHCR runtime and real v1.0.0 rollback verification |
+| `step39-production-monitoring.yml` | Production monitoring, drift, alert, and observability validation |
 
-Docker/CD validation includes image metadata, the container `/health` endpoint, smoke tests, and confirmation that the container runs as a non-root user (see `Dockerfile`).
+## Release Baseline and Current Main
+
+**v1.1.0** is the published production-release baseline. Its Git tag points to commit `ec95e88f154dcc8c552ef4914fec30ce7baa2dd5`.
+
+`main` may advance after a release. STEP 39 monitoring/observability was merged after the `v1.1.0` release baseline. Therefore, `v1.1.0` must not be interpreted as containing later `main` commits unless a later release is published.
+
+This distinction is intentional: a release tag identifies an immutable release baseline, while `main` represents the current integration state.
 
 ## Release
 
-**v1.0.0 — Production-Ready Cybersecurity ML Pipeline**
+**v1.1.0 — Production Release 🚀**
 
-This release represents the first portfolio-ready milestone after completing the ML quality, artifact consistency, CI/CD, monitoring, governance, and production-container validation work.
+The v1.1.0 release completed the production release gates for Docker/GHCR, API-key enforcement, non-root container execution, regression/security validation, and real previous-image rollback.
 
 ## Status
 
-**Production-ready regression pipeline with automated security, Docker, CI/CD, monitoring, reproducibility, governance, and rollback-readiness validation.**
+**Production-ready cybersecurity ML pipeline with automated security, Docker, CI/CD, monitoring, reproducibility, governance, and rollback-readiness validation.**
 
 Production deployment should still be preceded by environment-specific operational approval and confirmation that all prediction inputs are available at inference time.
