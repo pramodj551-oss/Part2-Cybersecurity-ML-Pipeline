@@ -62,14 +62,44 @@ jobs:
           docker push "${IMAGE_NAME}:${RELEASE_VERSION}"
           docker push "${IMAGE_NAME}:sha-${GITHUB_SHA::12}"
       - name: Ensure previous known-good release image exists
+        env:
+          SMOKE_API_KEY: ${{ secrets.STEP28_SMOKE_API_KEY }}
         run: |
           set -euo pipefail
+
+          # Do not trust a previously pushed tag merely because docker pull succeeds.
+          # The existing v1.0.0 image was previously bootstrapped without runtime model
+          # artifacts and therefore failed authenticated /ready with curl exit 22.
           if docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"; then
-            echo "Previous release image ${IMAGE_NAME}:${PREVIOUS_VERSION} is available."
-            exit 0
+            docker rm -f previous-probe 2>/dev/null || true
+            docker run -d --name previous-probe -p 8002:8000 \
+              -e INFERENCE_API_KEY="$SMOKE_API_KEY" \
+              "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+
+            ready=false
+            for i in {1..30}; do
+              if curl --fail --silent http://127.0.0.1:8002/health >/dev/null; then
+                ready=true
+                break
+              fi
+              sleep 2
+            done
+
+            if [ "$ready" = true ] && \
+               [ "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8002/ready)" = "401" ] && \
+               curl --fail --silent -H "X-API-Key: ${SMOKE_API_KEY}" \
+                 http://127.0.0.1:8002/ready >/dev/null; then
+              echo "Previous release image passed health + authentication validation."
+              docker rm -f previous-probe
+              exit 0
+            fi
+
+            echo "Existing previous image is not operational; rebuilding from immutable tag ${PREVIOUS_VERSION}."
+            docker logs previous-probe || true
+            docker rm -f previous-probe || true
           fi
 
-          echo "Previous release image is missing; bootstrapping it from immutable Git tag ${PREVIOUS_VERSION}."
+          echo "Bootstrapping previous release image from immutable Git tag ${PREVIOUS_VERSION}."
           git fetch --tags --force origin "refs/tags/${PREVIOUS_VERSION}:refs/tags/${PREVIOUS_VERSION}"
           git rev-parse --verify "refs/tags/${PREVIOUS_VERSION}" >/dev/null
 
@@ -77,8 +107,9 @@ jobs:
           trap 'rm -rf "$BUILD_DIR"' EXIT
           git archive "${PREVIOUS_VERSION}" | tar -x -C "$BUILD_DIR"
 
-          # The v1.0.0 source tag does not contain generated runtime model files.
+          # v1.0.0 source does not contain generated runtime model artifacts.
           # Generate them from that exact immutable tag before creating the rollback image.
+          test -f "$BUILD_DIR/run_pipeline.py"
           (
             cd "$BUILD_DIR"
             python run_pipeline.py
@@ -145,4 +176,4 @@ jobs:
         run: test "$(docker exec release-candidate id -u)" != "0"
       - name: Cleanup
         if: always()
-        run: docker rm -f release-candidate previous-release 2>/dev/null || true
+        run: docker rm -f release-candidate previous-release previous-probe 2>/dev/null || true
