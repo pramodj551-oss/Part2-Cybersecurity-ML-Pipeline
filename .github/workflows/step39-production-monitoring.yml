@@ -1,0 +1,72 @@
+name: STEP 39 Production Monitoring & Observability
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  monitoring-observability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install pinned dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Compile monitoring modules
+        run: python -m compileall -q src tests
+
+      - name: Run full regression and security tests
+        run: python -m pytest -q
+
+      - name: Run STEP 39 observability tests
+        run: python -m pytest -q tests/test_production_observability.py tests/test_model_monitoring.py
+
+      - name: Validate drift monitoring outputs
+        run: |
+          python scripts/run_step21.py
+          test -s outputs/drift_results.csv
+          test -s outputs/prediction_drift.json
+          test -s outputs/drift_report.json
+          test -s outputs/drift_summary.json
+
+      - name: Validate production alert evaluation
+        run: |
+          python - <<'PY'
+          from src.production_observability import RequestMetrics, evaluate_alerts
+          m = RequestMetrics()
+          m.observe(200, 0.10)
+          result = evaluate_alerts(m.snapshot(), prediction_psi=0.0, target_drift=0.0)
+          assert result["alert"] is False
+          assert result["alerts"]["error_rate"] is False
+          assert result["alerts"]["latency"] is False
+          print("STEP 39 alert evaluation PASS")
+          PY
+
+      - name: Verify no API secrets are emitted by monitoring module
+        run: |
+          ! grep -RniE 'INFERENCE_API_KEY|STEP28_SMOKE_API_KEY|GITHUB_TOKEN' src/production_observability.py tests/test_production_observability.py
+
+      - name: Final STEP 39 evidence
+        run: |
+          echo "STEP 39 Production Monitoring & Observability PASS"
+          echo "Application metrics: request count, errors, latency, status distribution"
+          echo "Model monitoring: prediction PSI and target drift thresholds"
+          echo "Alerting: error rate, latency, prediction drift, target drift"
+          echo "Security: no API secrets emitted by monitoring implementation"
