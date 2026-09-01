@@ -1,0 +1,37 @@
+name: STEP 37 Bootstrap Previous Known-Good Image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/pramodj551-oss/cybersecurity-ml-pipeline
+  PREVIOUS_VERSION: v1.0.0
+
+jobs:
+  publish-previous:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout v1.0.0
+        uses: actions/checkout@v6
+        with:
+          ref: v1.0.0
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build previous known-good image from v1.0.0
+        run: |
+          docker build --pull -t "${IMAGE_NAME}:${PREVIOUS_VERSION}" .
+          docker image inspect "${IMAGE_NAME}:${PREVIOUS_VERSION}" >/dev/null
+      - name: Push previous known-good image
+        run: docker push "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+      - name: Validate previous image exists in GHCR
+        run: |
+          docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
+          docker image inspect "${IMAGE_NAME}:${PREVIOUS_VERSION}" >/dev/null
