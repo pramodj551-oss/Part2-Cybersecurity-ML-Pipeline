@@ -77,6 +77,16 @@ jobs:
           trap 'rm -rf "$BUILD_DIR"' EXIT
           git archive "${PREVIOUS_VERSION}" | tar -x -C "$BUILD_DIR"
 
+          # The v1.0.0 source tag does not contain generated runtime model files.
+          # Generate them from that exact immutable tag before creating the rollback image.
+          (
+            cd "$BUILD_DIR"
+            python run_pipeline.py
+          )
+          test -s "$BUILD_DIR/models/best_model.pkl"
+          test -s "$BUILD_DIR/models/preprocessor.pkl"
+          test -s "$BUILD_DIR/models/model_metadata.json"
+
           docker build --pull \
             -t "${IMAGE_NAME}:${PREVIOUS_VERSION}" \
             "$BUILD_DIR"
