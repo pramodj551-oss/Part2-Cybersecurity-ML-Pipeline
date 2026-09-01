@@ -65,8 +65,8 @@ jobs:
           test -n "$CONFIG_USER"
           test "$CONFIG_USER" != "0"
           test "$CONFIG_USER" != "root"
-          docker run --rm --entrypoint id "${IMAGE_NAME}:${RELEASE_VERSION}" -u "$CONFIG_USER"
-          test "$(docker run --rm --entrypoint id "${IMAGE_NAME}:${RELEASE_VERSION}" -u "$CONFIG_USER" -u 2>/dev/null || true)" != "0"
+          RUNTIME_UID="$(docker run --rm --entrypoint sh "${IMAGE_NAME}:${RELEASE_VERSION}" -c 'id -u')"
+          test "$RUNTIME_UID" != "0"
 
       - name: Pull previous known-good v1.0.0 image
         run: docker pull "${IMAGE_NAME}:${PREVIOUS_VERSION}"
