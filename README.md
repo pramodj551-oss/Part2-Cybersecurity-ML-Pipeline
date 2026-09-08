@@ -17,6 +17,10 @@ A modular, reproducible cybersecurity **regression** pipeline that predicts `sev
 - STEP 38 post-release verification of the published `v1.1.0` GHCR image, secret-based authentication, non-root runtime, and real `v1.0.0` rollback.
 - STEP 39 production monitoring and observability for request/error metrics, latency, prediction drift, target drift, deterministic alerts, and secret-emission protection.
 
+## Unified Portfolio Architecture
+
+The cross-repository ownership model, Part 2 → Part 3 runtime contract, Part 2 → Part 4 boundary, shared security baseline, overlap policy, and portfolio verification gates are documented in [`docs/UNIFIED_PORTFOLIO_ARCHITECTURE.md`](docs/UNIFIED_PORTFOLIO_ARCHITECTURE.md).
+
 ## Project Overview
 
 The pipeline covers data loading and schema validation, train/test splitting, training-only missing-value fitting, encoding/scaling, variance filtering, model-based feature selection, regression model comparison, holdout evaluation, artifact persistence, and inference.
