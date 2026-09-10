@@ -1,6 +1,6 @@
 # H2 — Live Deployment Evidence Contract
 
-**Status: IN PROGRESS — live evidence gates have been executed; repository evidence is being consolidated. H2 PASS is not declared until every required gate is backed by recorded evidence.**
+**Status: IN PROGRESS — live deployment and rollback gates have been executed; final repository traceability is being consolidated. H2 PASS is not declared until every required gate is backed by recorded evidence.**
 
 ## Evidence gates
 
@@ -11,7 +11,8 @@
 | Part 3 target + runtime artifacts | PASS — canonical Streamlit target; 6/6 runtime artifacts verified |
 | Part 3 prediction + Dataset Explorer smoke | PASS — 1,600 × 16 dataset; prediction and exploration completed |
 | Part 3 health/readiness | PASS — recorded runtime response tied to `c97963eca1b078663bc7c60daa9506285404a4e7` |
-| Part 3 rollback smoke | PASS — user-confirmed; exact previous deployment identifier still needs traceability record |
+| Part 3 actual rollback target | PASS — user-confirmed |
+| Part 3 rollback smoke | PASS — user-confirmed; prediction, Dataset Explorer/EDA, health/readiness, restoration, and current-version smoke completed |
 | Part 4 target deployment | PASS — Render Web Service `part4-ai-cybersecurity-api`; `https://part4-ai-cybersecurity-api.onrender.com`; deployment ID `dep-dagk5u0ae00c73bulro0`; source `f11f16c0202bf6d9571ba6e888987b101ac058ea` |
 | Part 4 readiness | PASS — `/health` 200 and `/ready` ready v1.5.0 |
 | Part 4 authenticated query | PASS — `POST /v1/query` 200 |
@@ -71,7 +72,7 @@ Functional smoke:
 - Missing values: 0.
 - Duplicate records: 0.
 
-Part 3 rollback smoke: **PASS — user-confirmed**. The user reported rollback target selection, rollback completion, prediction smoke, Dataset Explorer smoke, health/readiness, restoration of `c97963...`, and current-version smoke. The exact previous deployment identifier is not present in the repository record yet, so H2 remains traceability-gated.
+Part 3 rollback smoke: **PASS — user-confirmed**. The user reported rollback target selection, rollback completion, prediction smoke, Dataset Explorer smoke, health/readiness, restoration of `c97963...`, and current-version smoke. The exact previous deployment identifier is still not recorded in the repository document; therefore this remains a traceability caveat even though the execution gate was reported PASS.
 
 ## Part 4 live deployment evidence
 
@@ -140,7 +141,7 @@ Previous-image rollback remains **PASS** under STEP 38 evidence.
 
 ### Part 3
 
-**PASS — user-confirmed.** Rollback smoke was reported complete, including prediction, Dataset Explorer/EDA, health/readiness, restoration of current `c97963...`, and current-version smoke. Exact previous deployment target identifier remains the only repository traceability gap.
+**PASS — user-confirmed.** Rollback smoke was reported complete, including prediction, Dataset Explorer/EDA, health/readiness, restoration of current `c97963...`, and current-version smoke. Exact previous deployment target identifier remains the only repository traceability caveat.
 
 ### Part 4
 
@@ -152,6 +153,12 @@ H2 is **PASS** only when the target deployment evidence is attached through sani
 
 **Current overall state: IN PROGRESS** because the exact Part 3 previous rollback deployment identifier has not yet been recorded in this repository evidence document.
 
-## Next execution step
+## Final execution sequence
 
-Close the remaining Part 3 rollback-target traceability gap, then run CI for this evidence branch, create the PR, verify reviews/comments, merge only with all checks green, verify post-merge CI on the merge SHA, and only then declare H2 **PASS**.
+1. Consolidate evidence on `feature/h2-final-evidence`.
+2. Run CI and require **ALL GREEN**.
+3. Create PR to `main`.
+4. Verify review/comments gate.
+5. Merge only after CI is green and the review/comments gate is clear.
+6. Verify post-merge CI on the merge SHA.
+7. Declare H2 **PASS** only after the post-merge verification and final traceability gate are closed.
